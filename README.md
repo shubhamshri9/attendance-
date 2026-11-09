@@ -1,2 +1,2 @@
-# attendance-
-attendance 
+pip install streamlit pandas openpyxl
+
