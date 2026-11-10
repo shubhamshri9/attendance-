@@ -636,7 +636,7 @@ elif page == "⏱️ Attendance & OT":
         st.caption("Calculation: First IN + Last OUT for each employee/date. Middle punches are ignored for working-hour and OT calculation.")
 
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.applymap(lambda x: 1 if x == "Present" else 0)
+        att = att.map(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
         ot = daily.copy()
         ot["OT Hours Decimal"] = ot["OT Hours"].apply(lambda x: hours_float(pd.to_timedelta(x)))
@@ -816,7 +816,7 @@ elif page == "📑 Reports":
         st.info("No data available.")
     else:
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.applymap(lambda x: 1 if x == "Present" else 0)
+        att = att.map(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
         ot = daily.copy()
         ot["OT Hours Decimal"] = ot["OT Hours"].apply(lambda x: hours_float(pd.to_timedelta(x)))
