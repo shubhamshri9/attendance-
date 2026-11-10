@@ -533,8 +533,12 @@ if not st.session_state.logged_in:
         <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
         """, unsafe_allow_html=True)
         with st.form("login_form"):
-            u_input = st.text_input("Username", placeholder="Enter your username")
-            p_input = st.text_input("Password", type="password", placeholder="Enter your password")
+            # Keep Username and Password aligned side by side on the same row.
+            user_col, pass_col = st.columns(2, gap="medium")
+            with user_col:
+                u_input = st.text_input("Login ID / Username", placeholder="Enter login ID")
+            with pass_col:
+                p_input = st.text_input("Password", type="password", placeholder="Enter password")
             submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
             if submit:
                 conn = get_connection()
