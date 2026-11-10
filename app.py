@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="HR Attendance, OT & Salary Portal",
     page_icon="💼",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 DB_FILE = "attendance.db"
@@ -334,6 +334,7 @@ def normalize_punching(raw):
     data = data.dropna(subset=["Transaction Date", "Time Parsed", "Employee Code"])
     return data
 
+@st.cache_data(show_spinner=False)
 def build_daily_report(punches, duty_hours=8):
     if punches.empty:
         return pd.DataFrame()
@@ -442,6 +443,8 @@ if not st.session_state.logged_in:
     }
     [data-testid="stHeader"] { background: transparent; }
     .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
+    /* Keep the pre-login screen independent from the authenticated workspace. */
+    section[data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
     .block-container [data-testid="stHorizontalBlock"] {
         align-items: stretch !important; gap: 1.5rem !important; flex-wrap: nowrap !important;
     }
