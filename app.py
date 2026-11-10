@@ -555,21 +555,74 @@ role = st.session_state.role
 
 st.markdown("""
 <style>
-:root { --portal-ink: #172554; --portal-muted: #64748b; --portal-line: #e2e8f0; }
-.block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1600px; }
+:root {
+  --portal-ink: #14213d; --portal-muted: #64748b; --portal-line: #e5eaf2;
+  --portal-blue: #2457d6; --portal-bg: #f5f7fb;
+}
+[data-testid="stAppViewContainer"] { background: var(--portal-bg); }
+[data-testid="stHeader"] { background: rgba(245,247,251,.88); }
+.block-container { padding-top: 1.35rem; padding-bottom: 2.5rem; max-width: 1540px; }
+h1, h2, h3 { color: var(--portal-ink); letter-spacing: -.035em; font-weight: 750; }
+h1 { font-size: 2rem !important; }
+h2 { font-size: 1.45rem !important; }
+h3 { font-size: 1.12rem !important; }
+p, label, [data-testid="stCaptionContainer"] { color: #526078; }
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg,#ffffff 0%,#f2f6ff 100%);
+  border-right: 1px solid var(--portal-line);
+}
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color: #34435f; }
+section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+  border-radius: 10px; padding: 7px 10px; transition: background .18s ease;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background: #eaf0ff; }
 div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
-    border: 1px solid var(--portal-line); padding: 16px 18px; border-radius: 14px;
-    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.045);
+  background: #fff; border: 1px solid var(--portal-line); padding: 17px 18px;
+  border-radius: 16px; box-shadow: 0 7px 22px rgba(20,40,80,.045);
 }
-div[data-testid="stMetricLabel"] { color: var(--portal-muted); font-weight: 600; }
-div[data-testid="stMetricValue"] { color: var(--portal-ink); font-weight: 750; }
-section[data-testid="stSidebar"] { border-right: 1px solid var(--portal-line); }
+div[data-testid="stMetricLabel"] { color: var(--portal-muted); font-weight: 650; font-size: .83rem; }
+div[data-testid="stMetricValue"] { color: var(--portal-ink); font-weight: 780; }
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
-    border-radius: 10px; font-weight: 650; min-height: 2.65rem;
+  border-radius: 11px; font-weight: 650; min-height: 2.7rem;
+  border: 1px solid #d9e2f1; transition: all .18s ease;
 }
-div[data-testid="stDataFrame"] { border: 1px solid var(--portal-line); border-radius: 12px; overflow: hidden; }
-h1, h2, h3 { color: var(--portal-ink); letter-spacing: -0.02em; }
+.stButton > button:hover, .stDownloadButton > button:hover { border-color: #8ba9f5; transform: translateY(-1px); }
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+  background: linear-gradient(110deg,#2457d6,#3479ed); color: white; border: 0;
+}
+div[data-testid="stDataFrame"], div[data-testid="stTable"] {
+  border: 1px solid var(--portal-line); border-radius: 13px; overflow: hidden;
+  background: #fff;
+}
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input, [data-testid="stSelectbox"] > div,
+[data-testid="stMultiSelect"] > div {
+  border-radius: 10px;
+}
+[data-testid="stForm"] {
+  background: #fff; border: 1px solid var(--portal-line);
+  border-radius: 16px; padding: 18px 20px 10px;
+  box-shadow: 0 6px 22px rgba(20,40,80,.035);
+}
+[data-testid="stAlert"] { border-radius: 12px; }
+hr { border-color: var(--portal-line); }
+.portal-topbar {
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:18px 22px; margin:0 0 24px; border:1px solid #e2eaf7;
+  border-radius:18px; background:linear-gradient(110deg,#fff 0%,#edf4ff 100%);
+  box-shadow:0 8px 25px rgba(31,65,125,.045);
+}
+.portal-topbar-title { color:#14213d; font-size:1.08rem; font-weight:800; letter-spacing:-.02em; }
+.portal-topbar-sub { color:#71809a; font-size:.82rem; margin-top:3px; }
+.portal-topbar-tag {
+  color:#2457d6; background:#e7efff; border:1px solid #d4e2ff;
+  padding:7px 12px; border-radius:999px; font-size:.76rem; font-weight:750;
+}
+@media (max-width: 700px) {
+  .block-container { padding-left:1rem; padding-right:1rem; }
+  .portal-topbar { align-items:flex-start; flex-direction:column; padding:15px; }
+  h1 { font-size:1.55rem !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -611,6 +664,16 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.role = ""
     st.session_state.full_name = ""
     st.rerun()
+
+st.markdown("""
+<div class="portal-topbar">
+  <div>
+    <div class="portal-topbar-title">💼 HR Attendance &amp; Payroll</div>
+    <div class="portal-topbar-sub">People operations · Attendance · Overtime · Salary management</div>
+  </div>
+  <div class="portal-topbar-tag">● &nbsp; WORKSPACE ACTIVE</div>
+</div>
+""", unsafe_allow_html=True)
 
 # ============================================================
 # LOAD APP DATA
