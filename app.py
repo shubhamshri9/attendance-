@@ -474,8 +474,21 @@ role = st.session_state.role
 
 st.markdown("""
 <style>
-.block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
-div[data-testid="stMetric"] { background: #fff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+:root { --portal-ink: #172554; --portal-muted: #64748b; --portal-line: #e2e8f0; }
+.block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1600px; }
+div[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid var(--portal-line); padding: 16px 18px; border-radius: 14px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.045);
+}
+div[data-testid="stMetricLabel"] { color: var(--portal-muted); font-weight: 600; }
+div[data-testid="stMetricValue"] { color: var(--portal-ink); font-weight: 750; }
+section[data-testid="stSidebar"] { border-right: 1px solid var(--portal-line); }
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
+    border-radius: 10px; font-weight: 650; min-height: 2.65rem;
+}
+div[data-testid="stDataFrame"] { border: 1px solid var(--portal-line); border-radius: 12px; overflow: hidden; }
+h1, h2, h3 { color: var(--portal-ink); letter-spacing: -0.02em; }
 </style>
 """, unsafe_allow_html=True)
 
