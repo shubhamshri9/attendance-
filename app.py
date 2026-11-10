@@ -390,42 +390,84 @@ if not st.session_state.logged_in:
     st.markdown("""
     <style>
     section[data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-    .login-wrap{max-width:520px;margin:0 auto;padding:35px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.12);min-height:330px;display:flex;flex-direction:column;justify-content:center}
-    .login-form-wrap{max-width:520px;margin:0 auto;padding:35px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.12);min-height:330px;display:flex;flex-direction:column;justify-content:center}
-    .login-logo{font-size:42px;text-align:center}.login-title{text-align:center;font-size:30px;font-weight:800;color:#111827}.login-sub{text-align:center;color:#64748b;margin-bottom:25px}
-    @media (max-width: 760px) {
-        .login-wrap,.login-form-wrap{min-height:0;padding:24px;margin-bottom:16px}
-        .login-title{font-size:25px}
+    [data-testid="stAppViewContainer"] {
+      background: radial-gradient(ellipse at 8% 12%,rgba(23,190,187,.16),transparent 30%),
+                  radial-gradient(ellipse at 92% 88%,rgba(47,110,235,.14),transparent 32%),#f3f6fb;
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
+    .block-container [data-testid="stHorizontalBlock"] { align-items: stretch !important; gap: 1.5rem !important; }
+    .block-container [data-testid="stHorizontalBlock"] > [data-testid="column"] { min-width:0 !important; }
+    .login-shell { min-height:545px;height:100%;background:#fff;border:1px solid #e5ebf3;border-radius:28px;overflow:hidden;box-shadow:0 28px 80px rgba(22,42,75,.13); }
+    .login-brand-panel { min-height:545px;height:100%;box-sizing:border-box;padding:48px 44px;color:#fff;background:linear-gradient(150deg,#101f3e 0%,#153d68 58%,#087f91 100%);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between; }
+    .login-brand-mark { width:62px;height:62px;display:grid;place-items:center;border-radius:19px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);font-size:30px;margin-bottom:35px; }
+    .login-brand-eyebrow { color:#79e2df;text-transform:uppercase;letter-spacing:2.2px;font-size:10px;font-weight:850; }
+    .login-brand-heading { color:#fff;font-size:36px;line-height:1.17;font-weight:850;letter-spacing:-1.1px;margin:14px 0 18px; }
+    .login-brand-copy { color:#d3e3f3;font-size:14px;line-height:1.8;max-width:390px; }
+    .login-feature-list { display:grid;gap:17px;margin-top:38px;color:#f2fbff;font-size:13px; }
+    .login-brand-footer { color:#a9c9df;font-size:10px;letter-spacing:1.5px;font-weight:700; }
+    div[data-testid="stVerticalBlockBorderWrapper"] { min-height:545px;box-sizing:border-box;display:flex;justify-content:center;border:1px solid #e5ebf3 !important;border-radius:28px !important;background:#fff !important;padding:42px 38px !important;box-shadow:0 28px 80px rgba(22,42,75,.09) !important; }
+    .login-form-eyebrow { color:#078b91;text-transform:uppercase;letter-spacing:2px;font-size:10px;font-weight:850; }
+    .login-form-heading { color:#142642;font-size:25px;line-height:1.25;font-weight:850;letter-spacing:-.55px;margin:10px 0 8px; }
+    .login-form-copy { color:#7a8799;font-size:13px;line-height:1.6;margin-bottom:24px; }
+    div[data-testid="stTextInput"] { width:100%;margin-bottom:12px; }
+    div[data-testid="stTextInput"] label { color:#34445b;font-size:12px;font-weight:750; }
+    div[data-testid="stTextInput"] input { min-height:49px;border-radius:12px;border:1px solid #dce5ef;background:#f9fbfd;padding-left:13px; }
+    div[data-testid="stTextInput"] input:focus { border-color:#0b999d;box-shadow:0 0 0 3px rgba(11,153,157,.11); }
+    div[data-testid="stFormSubmitButton"],div[data-testid="stFormSubmitButton"] button { width:100%; }
+    div[data-testid="stFormSubmitButton"] button { min-height:50px;margin-top:10px;border-radius:12px;color:#fff;font-weight:800;border:0;background:linear-gradient(100deg,#087f91,#1764b2); }
+    .login-secure-note { text-align:center;color:#8a97a8;font-size:10px;margin-top:22px; }
+    @media(max-width:760px) {
+      .block-container { padding:14px 12px !important; }
+      .block-container [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; }
+      .login-brand-panel { min-height:0;padding:30px 26px; }
+      .login-brand-heading { font-size:28px; }
+      .login-feature-list { display:none; }
+      div[data-testid="stVerticalBlockBorderWrapper"] { min-height:0;padding:28px 24px !important; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # Keep the original portal branding and login style, side by side.
-    brand_col, form_col = st.columns(2, gap="large", vertical_alignment="center")
+    brand_col, form_col = st.columns([1.05, 0.95], gap="large")
     with brand_col:
         st.markdown("""
-        <div class="login-wrap">
-            <div class="login-logo">💼</div>
-            <div class="login-title">HR Attendance & Salary Portal</div>
-            <div class="login-sub">Secure employee attendance, OT and wage management</div>
+        <div class="login-shell">
+          <div class="login-brand-panel">
+            <div>
+              <div class="login-brand-mark">💼</div>
+              <div class="login-brand-eyebrow">Workforce management suite</div>
+              <div class="login-brand-heading">Your people.<br>Your operations.<br>One workspace.</div>
+              <div class="login-brand-copy">A connected workspace for attendance, overtime and payroll operations — designed to keep your workforce data organized.</div>
+              <div class="login-feature-list">
+                <span>✓ &nbsp; Attendance and punch records</span>
+                <span>✓ &nbsp; Overtime monitoring and summaries</span>
+                <span>✓ &nbsp; Salary, wages and Excel reports</span>
+              </div>
+            </div>
+            <div class="login-brand-footer">HR ATTENDANCE / OT / PAYROLL</div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
     with form_col:
-        st.markdown('<div class="login-form-wrap">', unsafe_allow_html=True)
-        with st.form("login_form"):
-            u = st.text_input("Username")
-            p = st.text_input("Password", type="password")
-            remember = st.checkbox("Remember Me", value=True)
-            submit = st.form_submit_button("🔐 Login", use_container_width=True)
-            if submit:
-                if u == "admin" and p == "password":
-                    st.session_state.logged_in = True
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password")
-        st.markdown("</div>", unsafe_allow_html=True)
-
+        with st.container(border=True):
+            st.markdown("""
+            <div class="login-form-eyebrow">Secure portal access</div>
+            <div class="login-form-heading">Sign in to your account</div>
+            <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
+            """, unsafe_allow_html=True)
+            with st.form("login_form"):
+                u = st.text_input("Username", placeholder="Enter your username")
+                p = st.text_input("Password", type="password", placeholder="Enter your password")
+                remember = st.checkbox("Remember Me", value=True)
+                submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
+                if submit:
+                    if u == "admin" and p == "password":
+                        st.session_state.logged_in = True
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
+            st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
