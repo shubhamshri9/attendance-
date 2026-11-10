@@ -484,8 +484,17 @@ if not st.session_state.logged_in:
         background: #fff; border: 1px solid #e5ebf3; border-radius: 28px;
         box-shadow: 0 28px 80px rgba(22,42,75,.09);
     }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid #e5ebf3 !important; border-radius: 28px !important;
+        background: #fff !important; padding: 38px 34px !important;
+        box-shadow: 0 28px 80px rgba(22,42,75,.09) !important;
+    }
     .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
-    .login-form-heading { color: #142642; font-size: 30px; line-height: 1.2; font-weight: 850; letter-spacing: -.7px; margin: 10px 0 8px; }
+    .login-form-heading {
+        color: #142642; font-size: 25px; line-height: 1.25; font-weight: 850;
+        letter-spacing: -.55px; margin: 10px 0 8px; white-space: nowrap;
+        width: 100%; max-width: 100%;
+    }
     .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 27px; }
     div[data-testid="stForm"] { border: 0; padding: 0; background: transparent; box-shadow: none; }
     div[data-testid="stTextInput"] label { color: #34445b; font-size: 12px; font-weight: 750; }
@@ -509,11 +518,13 @@ if not st.session_state.logged_in:
         .login-feature-list { display: none; }
         .login-brand-footer { margin-top: 28px; }
         .login-form-panel { min-height: 0; padding: 30px 24px; }
+        .login-form-heading { font-size: 23px; white-space: normal; }
+        div[data-testid="stVerticalBlockBorderWrapper"] { padding: 24px 20px !important; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1.08, 0.92], gap="large")
+    left_col, right_col = st.columns([1, 1], gap="large")
     with left_col:
         st.markdown("""
         <div class="login-shell">
@@ -538,34 +549,31 @@ if not st.session_state.logged_in:
         """, unsafe_allow_html=True)
 
     with right_col:
-        st.markdown("""
-        <div class="login-form-panel">
-          <div class="login-form-eyebrow">Secure portal access</div>
-          <div class="login-form-heading">Sign in to your account</div>
-          <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
-        """, unsafe_allow_html=True)
-        with st.form("login_form"):
-            u_input = st.text_input("Username", placeholder="Enter your username")
-            p_input = st.text_input("Password", type="password", placeholder="Enter your password")
-            submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
-            if submit:
-                conn = get_connection()
-                cur = conn.cursor()
-                cur.execute("SELECT password_hash, role, full_name FROM users WHERE username=?", (u_input.strip(),))
-                row = cur.fetchone()
-                conn.close()
-                if row and row[0] == hash_password(p_input):
-                    st.session_state.logged_in = True
-                    st.session_state.username = u_input.strip()
-                    st.session_state.role = row[1]
-                    st.session_state.full_name = row[2]
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password.")
-        st.markdown("""
-          <div class="login-secure-note">🔒 Secure access · Authorized users only</div>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("""
+            <div class="login-form-eyebrow">Secure portal access</div>
+            <div class="login-form-heading">Sign in to your account</div>
+            <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
+            """, unsafe_allow_html=True)
+            with st.form("login_form"):
+                u_input = st.text_input("Username", placeholder="Enter your username")
+                p_input = st.text_input("Password", type="password", placeholder="Enter your password")
+                submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
+                if submit:
+                    conn = get_connection()
+                    cur = conn.cursor()
+                    cur.execute("SELECT password_hash, role, full_name FROM users WHERE username=?", (u_input.strip(),))
+                    row = cur.fetchone()
+                    conn.close()
+                    if row and row[0] == hash_password(p_input):
+                        st.session_state.logged_in = True
+                        st.session_state.username = u_input.strip()
+                        st.session_state.role = row[1]
+                        st.session_state.full_name = row[2]
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+            st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
