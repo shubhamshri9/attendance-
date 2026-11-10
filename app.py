@@ -65,6 +65,8 @@ def create_database():
             remarks TEXT
         )
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_punch_date_code ON punching_data(transaction_date, employee_code)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_punch_code_date ON punching_data(employee_code, transaction_date)")
     conn.commit()
     conn.close()
 
@@ -85,32 +87,31 @@ def ensure_default_category():
 
 
 def insert_punching_data(data):
+    """Bulk insert normalized punches; executemany is much faster than row-by-row SQL."""
+    if data.empty:
+        return 0, 0
+    records = [
+        (
+            str(r[0]), str(r[1]), str(r[2] or ""), str(r[3]),
+            str(r[4] or ""), str(r[5] or ""), str(r[6] or "")
+        )
+        for r in data[["Transaction Date", "Time", "Department", "Employee Code",
+                       "Employee Name", "Location Name", "ENTRY/EXIT"]].itertuples(index=False, name=None)
+    ]
     conn = get_connection()
-    cur = conn.cursor()
-    inserted = 0
-    duplicates = 0
-    for _, row in data.iterrows():
-        try:
-            cur.execute("""
-                INSERT OR IGNORE INTO punching_data
-                (transaction_date, punch_time, department, employee_code,
-                 employee_name, location_name, entry_exit)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(row["Transaction Date"]), str(row["Time"]),
-                str(row["Department"]), str(row["Employee Code"]),
-                str(row["Employee Name"]), str(row["Location Name"]),
-                str(row["ENTRY/EXIT"]),
-            ))
-            if cur.rowcount == 1:
-                inserted += 1
-            else:
-                duplicates += 1
-        except Exception:
-            duplicates += 1
-    conn.commit()
-    conn.close()
-    return inserted, duplicates
+    try:
+        before = conn.total_changes
+        conn.executemany("""
+            INSERT OR IGNORE INTO punching_data
+            (transaction_date, punch_time, department, employee_code,
+             employee_name, location_name, entry_exit)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, records)
+        conn.commit()
+        inserted = conn.total_changes - before
+        return inserted, len(records) - inserted
+    finally:
+        conn.close()
 
 
 def load_data():
@@ -475,9 +476,29 @@ if not st.session_state.logged_in:
 # ============================================================
 st.markdown("""
 <style>
-.block-container{padding-top:1.25rem;padding-bottom:2rem}
-div[data-testid="stMetric"]{background:#fff;border:1px solid #e5e7eb;padding:15px;border-radius:14px}
-.section-card{padding:18px;border:1px solid #e5e7eb;border-radius:16px;background:#fff;margin-bottom:12px}
+:root { --hr-ink:#142642; --hr-muted:#718096; --hr-line:#e3eaf3; --hr-teal:#087f91; --hr-blue:#1764b2; }
+[data-testid="stAppViewContainer"] { background:linear-gradient(145deg,#f5f8fc 0%,#edf3fa 100%); color:var(--hr-ink); }
+[data-testid="stHeader"] { background:rgba(245,248,252,.82); }
+.block-container { max-width:1600px; padding-top:1.35rem; padding-bottom:2.2rem; }
+h1,h2,h3 { color:var(--hr-ink); letter-spacing:-.45px; font-weight:800; }
+h1 { font-size:clamp(1.55rem,2.2vw,2.15rem); }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#ffffff 0%,#f3f7fc 100%); border-right:1px solid var(--hr-line); }
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2 { color:var(--hr-ink); }
+[data-testid="stSidebar"] [role="radiogroup"] { gap:5px; }
+[data-testid="stSidebar"] [role="radiogroup"] label { border-radius:10px; padding:7px 9px; transition:background .15s ease; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background:#eaf2fb; }
+div[data-testid="stMetric"] { background:linear-gradient(145deg,#fff,#f8fbff); border:1px solid var(--hr-line); padding:16px 17px; border-radius:16px; box-shadow:0 5px 18px rgba(30,64,110,.045); }
+div[data-testid="stMetricLabel"] { color:var(--hr-muted); font-weight:650; }
+div[data-testid="stMetricValue"] { color:var(--hr-ink); font-weight:850; }
+.section-card,div[data-testid="stVerticalBlockBorderWrapper"] { border:1px solid var(--hr-line); border-radius:16px; background:#fff; }
+.stButton > button,.stDownloadButton > button { border-radius:11px; min-height:42px; font-weight:700; border:1px solid #d6e1ee; transition:all .15s ease; }
+.stButton > button[kind="primary"],.stDownloadButton > button[kind="primary"] { background:linear-gradient(100deg,var(--hr-teal),var(--hr-blue)); color:#fff; border:0; }
+.stButton > button:hover,.stDownloadButton > button:hover { border-color:var(--hr-teal); color:var(--hr-teal); }
+div[data-testid="stDataFrame"],div[data-testid="stTable"] { border:1px solid var(--hr-line); border-radius:12px; overflow:hidden; }
+div[data-testid="stTextInput"] input,div[data-testid="stNumberInput"] input,div[data-testid="stSelectbox"] div[data-baseweb="select"] { border-radius:10px; }
+div[data-testid="stAlert"] { border-radius:12px; }
+hr { border-color:var(--hr-line); }
+@media(max-width:760px) { .block-container { padding:1rem .8rem 1.5rem; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -504,22 +525,28 @@ df = load_data()
 if page == "📤 Upload Data":
     st.title("📤 Upload Punching Data")
     st.info("Upload Excel/CSV. Entry/in are treated as IN; Exit/out are treated as OUT. Multiple punches are retained, but salary/OT uses first IN and last OUT for each employee/day.")
-    uploaded = st.file_uploader("Upload Excel or CSV", type=["xlsx","xls","csv"])
+    uploaded = st.file_uploader("Upload Excel or CSV", type=["xlsx","xls","csv"], help="For large files, CSV is generally faster than Excel.")
     if uploaded:
         try:
+            file_bytes = uploaded.getvalue()
             if uploaded.name.lower().endswith(".csv"):
-                raw = pd.read_csv(uploaded)
+                try:
+                    raw = pd.read_csv(BytesIO(file_bytes), low_memory=False, encoding="utf-8-sig")
+                except UnicodeDecodeError:
+                    raw = pd.read_csv(BytesIO(file_bytes), low_memory=False, encoding="cp1252")
             else:
-                book = pd.ExcelFile(uploaded)
-                preferred = next((s for s in book.sheet_names if "puching" in s.lower() or "punch" in s.lower()), book.sheet_names[0])
-                raw = pd.read_excel(uploaded, sheet_name=preferred)
+                book = pd.ExcelFile(BytesIO(file_bytes))
+                preferred = next((sh for sh in book.sheet_names if "puching" in sh.lower() or "punch" in sh.lower()), book.sheet_names[0])
+                raw = pd.read_excel(BytesIO(file_bytes), sheet_name=preferred, engine="openpyxl")
             normalized = normalize_punching(raw)
-            st.success(f"Detected {len(normalized):,} valid punch records.")
+            st.success(f"Detected {len(normalized):,} valid punch records. Invalid rows skipped: {len(raw) - len(normalized):,}.")
             st.dataframe(normalized.drop(columns=["Time Parsed"], errors="ignore").head(100), use_container_width=True)
+            st.caption("Preview shows the first 100 rows. Import uses bulk database insertion to improve speed.")
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("Import / Append Data", type="primary", use_container_width=True):
-                    n, dups = insert_punching_data(normalized)
+                    with st.spinner("Importing records…"):
+                        n, dups = insert_punching_data(normalized)
                     st.success(f"Imported {n:,} records. Duplicates skipped: {dups:,}.")
                     st.rerun()
             with c2:
@@ -619,6 +646,32 @@ elif page == "⏱️ Attendance & OT":
         otm["OT Grand Total Hours"] = otm.sum(axis=1)
         st.subheader("OT Matrix")
         st.dataframe(otm, use_container_width=True)
+
+        st.subheader("📥 Download Attendance & OT")
+        export_daily = daily.copy()
+        export_att = att.reset_index()
+        export_ot = otm.reset_index()
+        download_file = export_excel({
+            "Daily Attendance OT": export_daily,
+            "Attendance Matrix": export_att,
+            "OT Matrix": export_ot
+        })
+        st.download_button(
+            "📥 Download Attendance & OT Excel",
+            data=download_file,
+            file_name=f"Attendance_OT_Report_{date.today().isoformat()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True
+        )
+        csv_data = daily.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "Download Daily Attendance CSV",
+            data=csv_data,
+            file_name=f"Daily_Attendance_OT_{date.today().isoformat()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
 # ============================================================
 # SALARY MASTER
