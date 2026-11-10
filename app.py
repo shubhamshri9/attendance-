@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import hashlib
 from datetime import date, datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 
 # ============================================================
-# PAGE CONFIG & THEME
+# PAGE CONFIG
 # ============================================================
 st.set_page_config(
     page_title="HR Attendance, OT & Salary Portal",
@@ -18,16 +18,11 @@ st.set_page_config(
 DB_FILE = "attendance.db"
 
 # ============================================================
-# SECURITY & HASHING HELPERS
-# ============================================================
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-# ============================================================
-# DATABASE CONNECTION
+# DATABASE
 # ============================================================
 def get_connection():
-    return sqlite3.connect(DB_FILE, check_same_thread=False)
+    return sqlite3.connect(DB_FILE)
+
 
 def create_database():
     conn = get_connection()
@@ -70,21 +65,13 @@ def create_database():
             remarks TEXT
         )
     """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL,
-            full_name TEXT
-        )
-    """)
     conn.commit()
     conn.close()
 
-def seed_default_users_and_categories():
+
+def ensure_default_category():
     conn = get_connection()
     cur = conn.cursor()
-    
     cur.execute("SELECT COUNT(*) FROM salary_categories")
     if cur.fetchone()[0] == 0:
         cur.execute("""
@@ -92,69 +79,11 @@ def seed_default_users_and_categories():
             (category, monthly_salary, working_days, daily_wage, ot_rate,
              attendance_allowance, food_allowance, travel_allowance, other_allowance)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("General", 15000, 26, 576.92, 75, 50, 40, 50, 0))
-
-    default_users = [
-        ("admin", hash_password("admin123"), "Admin", "System Administrator"),
-        ("hr", hash_password("hr123"), "HR", "HR Manager"),
-        ("accounts", hash_password("acc123"), "Accounts", "Accounts Officer"),
-        ("supervisor", hash_password("sup123"), "Supervisor", "Floor Supervisor"),
-        ("employee", hash_password("emp123"), "Employee", "Test Employee")
-    ]
-    for uname, phash, role, fname in default_users:
-        cur.execute("""
-            INSERT OR IGNORE INTO users (username, password_hash, role, full_name)
-            VALUES (?, ?, ?, ?)
-        """, (uname, phash, role, fname))
-    
+        """, ("General", 0, 26, 0, 0, 0, 0, 0, 0))
     conn.commit()
     conn.close()
 
-create_database()
-seed_default_users_and_categories()
 
-# ============================================================
-# DATA LOADERS
-# ============================================================
-@st.cache_data
-def load_data():
-    conn = get_connection()
-    df = pd.read_sql_query("""
-        SELECT id, transaction_date, punch_time, department, employee_code,
-               employee_name, location_name, entry_exit
-        FROM punching_data
-        ORDER BY transaction_date DESC, punch_time DESC
-    """, conn)
-    conn.close()
-    if not df.empty:
-        df["transaction_date"] = pd.to_datetime(df["transaction_date"], errors="coerce")
-        df["punch_time"] = df["punch_time"].astype(str)
-    return df
-
-@st.cache_data
-def load_categories():
-    conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM salary_categories ORDER BY category", conn)
-    conn.close()
-    return df
-
-@st.cache_data
-def load_employee_salary():
-    conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM employee_salary ORDER BY employee_code", conn)
-    conn.close()
-    return df
-
-@st.cache_data
-def load_users():
-    conn = get_connection()
-    df = pd.read_sql_query("SELECT username, role, full_name FROM users ORDER BY username", conn)
-    conn.close()
-    return df
-
-# ============================================================
-# WRITE & MUTATION HELPERS
-# ============================================================
 def insert_punching_data(data):
     conn = get_connection()
     cur = conn.cursor()
@@ -181,15 +110,37 @@ def insert_punching_data(data):
             duplicates += 1
     conn.commit()
     conn.close()
-    st.cache_data.clear()
     return inserted, duplicates
+
+
+def load_data():
+    conn = get_connection()
+    df = pd.read_sql_query("""
+        SELECT id, transaction_date, punch_time, department, employee_code,
+               employee_name, location_name, entry_exit
+        FROM punching_data
+        ORDER BY transaction_date DESC, punch_time DESC
+    """, conn)
+    conn.close()
+    if not df.empty:
+        df["transaction_date"] = pd.to_datetime(df["transaction_date"], errors="coerce")
+        df["punch_time"] = df["punch_time"].astype(str)
+    return df
+
 
 def clear_punching_data():
     conn = get_connection()
     conn.execute("DELETE FROM punching_data")
     conn.commit()
     conn.close()
-    st.cache_data.clear()
+
+
+def load_categories():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM salary_categories ORDER BY category", conn)
+    conn.close()
+    return df
+
 
 def save_category(row):
     conn = get_connection()
@@ -210,14 +161,21 @@ def save_category(row):
     """, row)
     conn.commit()
     conn.close()
-    st.cache_data.clear()
+
 
 def delete_category(category):
     conn = get_connection()
     conn.execute("DELETE FROM salary_categories WHERE category=?", (category,))
     conn.commit()
     conn.close()
-    st.cache_data.clear()
+
+
+def load_employee_salary():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM employee_salary ORDER BY employee_code", conn)
+    conn.close()
+    return df
+
 
 def save_employee_salary(row):
     conn = get_connection()
@@ -235,25 +193,20 @@ def save_employee_salary(row):
     """, row)
     conn.commit()
     conn.close()
-    st.cache_data.clear()
 
-def save_user(username, password, role, full_name):
+
+def delete_employee_salary(code):
     conn = get_connection()
-    phash = hash_password(password)
-    conn.execute("""
-        INSERT INTO users (username, password_hash, role, full_name)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(username) DO UPDATE SET
-            password_hash=excluded.password_hash,
-            role=excluded.role,
-            full_name=excluded.full_name
-    """, (username, phash, role, full_name))
+    conn.execute("DELETE FROM employee_salary WHERE employee_code=?", (code,))
     conn.commit()
     conn.close()
-    st.cache_data.clear()
+
+
+create_database()
+ensure_default_category()
 
 # ============================================================
-# TIME & CALCULATION HELPERS
+# HELPERS
 # ============================================================
 def normalize_direction(value):
     v = str(value).strip().lower()
@@ -262,6 +215,7 @@ def normalize_direction(value):
     if v in {"exit", "out", "checkout", "check-out", "punch out"}:
         return "OUT"
     return v.upper()
+
 
 def parse_time(value):
     if pd.isna(value):
@@ -274,6 +228,7 @@ def parse_time(value):
         except Exception:
             pass
     if isinstance(value, (int, float)):
+        # Excel time fraction
         seconds = int(round(float(value) * 24 * 3600)) % 86400
         return (datetime.min + timedelta(seconds=seconds)).time()
     s = str(value).strip()
@@ -287,6 +242,7 @@ def parse_time(value):
     except Exception:
         return None
 
+
 def format_td(td):
     if pd.isna(td) or td is None:
         return ""
@@ -295,10 +251,12 @@ def format_td(td):
     m, s = divmod(rem, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 def hours_float(td):
     if td is None or pd.isna(td):
         return 0.0
     return max(0.0, td.total_seconds() / 3600)
+
 
 def normalize_punching(raw):
     data = raw.copy()
@@ -328,6 +286,7 @@ def normalize_punching(raw):
     data["Employee Name"] = data["Employee Name"].fillna("").astype(str).str.strip()
     data = data.dropna(subset=["Transaction Date", "Time Parsed", "Employee Code"])
     return data
+
 
 @st.cache_data(show_spinner=False)
 def build_daily_report(punches, duty_hours=8):
@@ -369,7 +328,8 @@ def build_daily_report(punches, duty_hours=8):
             out[c] = out[c].apply(format_td)
     return out.sort_values(["Date", "Employee Code"])
 
-def build_salary_report(daily, categories, employee_master):
+
+def build_salary_report(daily, categories, employee_master, duty_hours=8):
     if daily.empty:
         return pd.DataFrame()
     d = daily.copy()
@@ -407,8 +367,10 @@ def build_salary_report(daily, categories, employee_master):
     cols = ["Employee Code","Employee Name","Category","Present Days","Daily Wage","Regular Wages","OT Hours","OT Rate","OT Wages","Attendance Allowance Total","Food Allowance Total","Travel Allowance Total","Other Allowance Total","Extra Wages","Extra Allowance","Gross Wages","Deduction","Net Payable","Remarks"]
     return result[cols].sort_values(["Category","Employee Code"])
 
+
 def money(x):
     return f"₹{float(x):,.2f}"
+
 
 def export_excel(sheets):
     bio = BytesIO()
@@ -419,214 +381,117 @@ def export_excel(sheets):
     return bio
 
 # ============================================================
-# PREMIUM LOGIN SCREEN
+# LOGIN
 # ============================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-    st.session_state.full_name = ""
 
 if not st.session_state.logged_in:
     st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] {
-        background:
-          radial-gradient(ellipse at 8% 12%, rgba(23,190,187,.16), transparent 30%),
-          radial-gradient(ellipse at 92% 88%, rgba(47,110,235,.14), transparent 32%),
-          #f3f6fb;
-    }
-    [data-testid="stHeader"] { background: transparent; }
-    .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
-    /* Keep the pre-login screen independent from the authenticated workspace. */
     section[data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-    .block-container [data-testid="stHorizontalBlock"] {
-        align-items: stretch !important; gap: 1.5rem !important; flex-wrap: nowrap !important;
-    }
-    .block-container [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-        min-width: 0 !important;
-    }
-    .login-shell {
-        min-height: 545px; height: 100%; background: #fff; border: 1px solid #e5ebf3;
-        border-radius: 28px; overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
-    }
-    .login-brand-panel {
-        min-height: 545px; height: 100%; box-sizing: border-box; padding: 48px 44px;
-        color: #fff; background: linear-gradient(150deg,#101f3e 0%,#153d68 58%,#087f91 100%);
-        position: relative; overflow: hidden; display: flex; flex-direction: column;
-        justify-content: space-between;
-    }
-    .login-brand-panel:before, .login-brand-panel:after {
-        content: ""; position: absolute; border-radius: 50%; pointer-events: none;
-        border: 1px solid rgba(255,255,255,.14);
-    }
-    .login-brand-panel:before { width: 340px; height: 340px; right: -150px; top: -120px; box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 75px rgba(255,255,255,.025); }
-    .login-brand-panel:after { width: 210px; height: 210px; left: -120px; bottom: -100px; }
-    .login-brand-content, .login-brand-footer { position: relative; z-index: 1; }
-    .login-brand-mark {
-        width: 62px; height: 62px; display: grid; place-items: center; border-radius: 19px;
-        background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22);
-        font-size: 30px; margin-bottom: 35px; backdrop-filter: blur(8px);
-    }
-    .login-brand-eyebrow { color: #79e2df; text-transform: uppercase; letter-spacing: 2.2px; font-size: 10px; font-weight: 850; }
-    .login-brand-heading { color: #fff; font-size: 36px; line-height: 1.17; font-weight: 850; letter-spacing: -1.1px; margin: 14px 0 18px; }
-    .login-brand-copy { color: #d3e3f3; font-size: 14px; line-height: 1.8; max-width: 390px; }
-    .login-feature-list { display: grid; gap: 17px; margin-top: 38px; color: #f2fbff; font-size: 13px; }
-    .login-feature-list span { display: flex; align-items: center; gap: 12px; }
-    .login-feature-dot { width: 23px; height: 23px; display: inline-grid; place-items: center; border-radius: 8px; background: rgba(74,222,210,.15); color: #76eee2; font-size: 12px; }
-    .login-brand-footer { color: #a9c9df; font-size: 10px; letter-spacing: 1.5px; font-weight: 700; }
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        min-height: 545px; box-sizing: border-box; display: flex; justify-content: center;
-        border: 1px solid #e5ebf3 !important; border-radius: 28px !important;
-        background: #fff !important; padding: 42px 38px !important;
-        box-shadow: 0 28px 80px rgba(22,42,75,.09) !important;
-    }
-    .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
-    .login-form-heading {
-        color: #142642; font-size: clamp(21px, 2vw, 25px); line-height: 1.25;
-        font-weight: 850; letter-spacing: -.55px; margin: 10px 0 8px;
-        white-space: normal; overflow-wrap: anywhere;
-    }
-    .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
-    div[data-testid="stForm"] { border: 0; padding: 0; background: transparent; box-shadow: none; }
-    div[data-testid="stTextInput"] { width: 100%; margin-bottom: 12px; }
-    div[data-testid="stTextInput"] label { color: #34445b; font-size: 12px; font-weight: 750; }
-    div[data-testid="stTextInput"] input {
-        min-height: 49px; width: 100%; box-sizing: border-box; border-radius: 12px;
-        border: 1px solid #dce5ef; background: #f9fbfd; padding-left: 13px;
-    }
-    div[data-testid="stTextInput"] input:focus { border-color: #0b999d; box-shadow: 0 0 0 3px rgba(11,153,157,.11); }
-    div[data-testid="stFormSubmitButton"] { width: 100%; }
-    div[data-testid="stFormSubmitButton"] button {
-        min-height: 50px; width: 100%; margin-top: 10px; border-radius: 12px; color: #fff;
-        font-weight: 800; letter-spacing: .2px; border: 0;
-        background: linear-gradient(100deg,#087f91,#1764b2);
-        box-shadow: 0 10px 22px rgba(8,127,145,.22);
-    }
-    div[data-testid="stFormSubmitButton"] button:hover { color: #fff; filter: brightness(1.07); }
-    .login-secure-note { text-align: center; color: #8a97a8; font-size: 10px; margin-top: 22px; }
+    .login-wrap{max-width:520px;margin:0 auto;padding:35px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.12);min-height:330px;display:flex;flex-direction:column;justify-content:center}
+    .login-form-wrap{max-width:520px;margin:0 auto;padding:35px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.12);min-height:330px;display:flex;flex-direction:column;justify-content:center}
+    .login-logo{font-size:42px;text-align:center}.login-title{text-align:center;font-size:30px;font-weight:800;color:#111827}.login-sub{text-align:center;color:#64748b;margin-bottom:25px}
     @media (max-width: 760px) {
-        .block-container { padding: 14px 12px !important; }
-        .block-container [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
-        .login-brand-panel { min-height: 0; padding: 30px 26px; }
-        .login-brand-heading { font-size: 28px; }
-        .login-feature-list { display: none; }
-        .login-brand-footer { margin-top: 28px; }
-        div[data-testid="stVerticalBlockBorderWrapper"] { min-height: 0; padding: 28px 24px !important; }
+        .login-wrap,.login-form-wrap{min-height:0;padding:24px;margin-bottom:16px}
+        .login-title{font-size:25px}
     }
     </style>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1.05, 0.95], gap="large")
-    with left_col:
+    # Keep the original portal branding and login style, side by side.
+    brand_col, form_col = st.columns(2, gap="large", vertical_alignment="center")
+    with brand_col:
         st.markdown("""
-        <div class="login-shell">
-          <div class="login-brand-panel">
-            <div class="login-brand-content">
-              <div class="login-brand-mark">💼</div>
-              <div class="login-brand-eyebrow">Workforce management suite</div>
-              <div class="login-brand-heading">Your people.<br>Your operations.<br>One workspace.</div>
-              <div class="login-brand-copy">
-                A connected workspace for attendance, overtime and payroll
-                operations — designed to keep your workforce data organized.
-              </div>
-              <div class="login-feature-list">
-                <span><i class="login-feature-dot">✓</i> Attendance and punch records</span>
-                <span><i class="login-feature-dot">✓</i> Overtime monitoring and summaries</span>
-                <span><i class="login-feature-dot">✓</i> Salary, wages and Excel reports</span>
-              </div>
-            </div>
-            <div class="login-brand-footer">HR ATTENDANCE&nbsp; / &nbsp;OT&nbsp; / &nbsp;PAYROLL</div>
-          </div>
+        <div class="login-wrap">
+            <div class="login-logo">💼</div>
+            <div class="login-title">HR Attendance & Salary Portal</div>
+            <div class="login-sub">Secure employee attendance, OT and wage management</div>
         </div>
         """, unsafe_allow_html=True)
 
-    with right_col:
-        with st.container(border=True):
-            st.markdown("""
-            <div class="login-form-eyebrow">Secure portal access</div>
-            <div class="login-form-heading">Sign in to your account</div>
-            <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
-            """, unsafe_allow_html=True)
-            with st.form("login_form"):
-                u_input = st.text_input("Username", placeholder="Enter your username")
-                p_input = st.text_input("Password", type="password", placeholder="Enter your password")
-                submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
-                if submit:
-                    conn = get_connection()
-                    cur = conn.cursor()
-                    cur.execute("SELECT password_hash, role, full_name FROM users WHERE username=?", (u_input.strip(),))
-                    row = cur.fetchone()
-                    conn.close()
-                    if row and row[0] == hash_password(p_input):
-                        st.session_state.logged_in = True
-                        st.session_state.username = u_input.strip()
-                        st.session_state.role = row[1]
-                        st.session_state.full_name = row[2]
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password.")
-            st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
+    with form_col:
+        st.markdown('<div class="login-form-wrap">', unsafe_allow_html=True)
+        with st.form("login_form"):
+            u = st.text_input("Username")
+            p = st.text_input("Password", type="password")
+            remember = st.checkbox("Remember Me", value=True)
+            submit = st.form_submit_button("🔐 Login", use_container_width=True)
+            if submit:
+                if u == "admin" and p == "password":
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
+        st.markdown("</div>", unsafe_allow_html=True)
+
     st.stop()
 
 # ============================================================
-# ROLE-BASED NAVIGATION SETUP
+# STYLE / SIDEBAR
 # ============================================================
-role = st.session_state.role
-
 st.markdown("""
 <style>
-.block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
-div[data-testid="stMetric"] { background: #fff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.block-container{padding-top:1.25rem;padding-bottom:2rem}
+div[data-testid="stMetric"]{background:#fff;border:1px solid #e5e7eb;padding:15px;border-radius:14px}
+.section-card{padding:18px;border:1px solid #e5e7eb;border-radius:16px;background:#fff;margin-bottom:12px}
 </style>
 """, unsafe_allow_html=True)
 
 st.sidebar.title("💼 HR Payroll Portal")
-st.sidebar.markdown(f"**Welcome, {st.session_state.full_name}**  \n*Role: {role}*")
+st.sidebar.caption("Attendance • OT • Salary • Wages")
+page = st.sidebar.radio("Navigation", [
+    "📊 Dashboard", "📋 Punching Data", "📤 Upload Data", "👤 Employee View",
+    "⏱️ Attendance & OT", "💰 Salary & Wages", "⚙️ Salary Master", "📑 Reports"
+])
 st.sidebar.divider()
-
-pages_map = {
-    "Admin": [
-        "📊 HR Dashboard", "👥 Employee Management", "📋 Attendance Management",
-        "⏱️ Overtime Management", "💰 Salary & Wages", "⚙️ Salary Master",
-        "📑 Reports & Excel Export", "⚙️ User Management", "📤 Upload Data"
-    ],
-    "HR": [
-        "📊 HR Dashboard", "👥 Employee Management", "📋 Attendance Management",
-        "📑 Reports & Excel Export", "📤 Upload Data"
-    ],
-    "Accounts": [
-        "📊 HR Dashboard", "💰 Salary & Wages", "⚙️ Salary Master",
-        "📑 Reports & Excel Export"
-    ],
-    "Supervisor": [
-        "📋 Attendance Management", "⏱️ Overtime Management"
-    ],
-    "Employee": [
-        "👤 Employee View"
-    ]
-}
-
-available_pages = pages_map.get(role, ["📊 HR Dashboard"])
-page = st.sidebar.radio("Navigation", available_pages)
-st.sidebar.divider()
-
 duty_hours = st.sidebar.number_input("Standard Duty Hours / Day", min_value=1.0, max_value=24.0, value=8.0, step=0.5)
-
-if st.sidebar.button("🚪 Logout", use_container_width=True):
+if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-    st.session_state.full_name = ""
     st.rerun()
 
 # ============================================================
-# LOAD APP DATA
+# LOAD
 # ============================================================
 df = load_data()
-categories = load_categories()
-employee_master = load_employee_salary()
 
+# ============================================================
+# UPLOAD
+# ============================================================
+if page == "📤 Upload Data":
+    st.title("📤 Upload Punching Data")
+    st.info("Upload Excel/CSV. Entry/in are treated as IN; Exit/out are treated as OUT. Multiple punches are retained, but salary/OT uses first IN and last OUT for each employee/day.")
+    uploaded = st.file_uploader("Upload Excel or CSV", type=["xlsx","xls","csv"])
+    if uploaded:
+        try:
+            if uploaded.name.lower().endswith(".csv"):
+                raw = pd.read_csv(uploaded)
+            else:
+                book = pd.ExcelFile(uploaded)
+                preferred = next((s for s in book.sheet_names if "puching" in s.lower() or "punch" in s.lower()), book.sheet_names[0])
+                raw = pd.read_excel(uploaded, sheet_name=preferred)
+            normalized = normalize_punching(raw)
+            st.success(f"Detected {len(normalized):,} valid punch records.")
+            st.dataframe(normalized.drop(columns=["Time Parsed"], errors="ignore").head(100), use_container_width=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Import / Append Data", type="primary", use_container_width=True):
+                    n, dups = insert_punching_data(normalized)
+                    st.success(f"Imported {n:,} records. Duplicates skipped: {dups:,}.")
+                    st.rerun()
+            with c2:
+                if st.button("Clear All Punching Data", use_container_width=True):
+                    clear_punching_data()
+                    st.warning("All punching data cleared.")
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Import error: {e}")
+    st.stop()
+
+# ============================================================
+# COMMON DERIVED DATA
+# ============================================================
 if not df.empty:
     normalized_db = df.rename(columns={
         "transaction_date":"Transaction Date", "punch_time":"Time", "department":"Department",
@@ -640,254 +505,225 @@ else:
     normalized_db = pd.DataFrame()
     daily = pd.DataFrame()
 
-# ============================================================
-# PAGE: UPLOAD DATA
-# ============================================================
-if page == "📤 Upload Data":
-    st.title("📤 Upload Punching Data")
-    st.info("Upload Excel/CSV punching logs. Entry/in = IN; Exit/out = OUT.")
-    uploaded = st.file_uploader("Choose Excel or CSV file", type=["xlsx","xls","csv"])
-    if uploaded:
-        try:
-            if uploaded.name.lower().endswith(".csv"):
-                raw = pd.read_csv(uploaded)
-            else:
-                book = pd.ExcelFile(uploaded)
-                preferred = next((s for s in book.sheet_names if "punch" in s.lower() or "puching" in s.lower()), book.sheet_names[0])
-                raw = pd.read_excel(uploaded, sheet_name=preferred)
-            normalized = normalize_punching(raw)
-            st.success(f"Detected {len(normalized):,} valid punch records.")
-            st.dataframe(normalized.drop(columns=["Time Parsed"], errors="ignore").head(50), use_container_width=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("📥 Import & Append Records", type="primary", use_container_width=True):
-                    n, dups = insert_punching_data(normalized)
-                    st.success(f"Successfully imported {n:,} records. Duplicates skipped: {dups:,}.")
-                    st.rerun()
-            with c2:
-                if st.button("🗑️ Clear All Punching Data", use_container_width=True):
-                    clear_punching_data()
-                    st.warning("All punching logs cleared.")
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Import error: {e}")
+categories = load_categories()
+employee_master = load_employee_salary()
 
 # ============================================================
-# PAGE: HR DASHBOARD
+# DASHBOARD
 # ============================================================
-elif page == "📊 HR Dashboard":
-    st.title("📊 HR Attendance & Payroll Dashboard")
+if page == "📊 Dashboard":
+    st.title("📊 HR Attendance Dashboard")
     if df.empty:
-        st.info("No punching data available. Go to Upload Data to import attendance records.")
+        st.info("No punching data available. Go to Upload Data to import your Excel file.")
     else:
         c = st.columns(5)
-        c[0].metric("Total Punches", f"{len(df):,}")
+        c[0].metric("Punch Records", f"{len(df):,}")
         c[1].metric("Employees", f"{df['employee_code'].nunique():,}")
-        c[2].metric("Present Days Logged", f"{daily.shape[0]:,}")
-        ot_total = sum(hours_float(pd.to_timedelta(x)) for x in daily["OT Hours"]) if not daily.empty else 0
-        c[3].metric("Total OT Hours", f"{ot_total:,.2f}")
-        c[4].metric("Salary Categories", f"{categories['category'].nunique():,}")
-        
-        st.subheader("Recent Punch Activity")
-        st.dataframe(df.head(50), use_container_width=True, hide_index=True)
+        c[2].metric("Present Days", f"{daily.shape[0]:,}")
+        ot_total = sum(hours_float(pd.to_timedelta(x)) for x in daily["OT Hours"])
+        c[3].metric("OT Hours", f"{ot_total:,.2f}")
+        c[4].metric("Categories", f"{categories['category'].nunique():,}")
+        st.subheader("Latest Punching Data")
+        st.dataframe(df.head(100), use_container_width=True, hide_index=True)
 
 # ============================================================
-# PAGE: EMPLOYEE MANAGEMENT
+# PUNCHING DATA
 # ============================================================
-elif page == "👥 Employee Management":
-    st.title("👥 Employee Management")
-    st.caption("Manage employee directory, active categories, and personal allowances.")
-    if df.empty and employee_master.empty:
-        st.info("No employee records found. Upload punching data or add employee salary configurations.")
+elif page == "📋 Punching Data":
+    st.title("📋 Punching Data")
+    if df.empty:
+        st.info("No data available.")
     else:
         q = st.text_input("Search Employee Code / Name")
-        emp_list = employee_master.copy()
-        if not df.empty:
-            active_emps = df[["employee_code", "employee_name"]].drop_duplicates().rename(columns={"employee_code":"Employee Code", "employee_name":"Employee Name"})
-            if emp_list.empty:
-                emp_list = active_emps.rename(columns={"Employee Code":"employee_code", "Employee Name":"employee_name"})
-            else:
-                emp_list = active_emps.merge(emp_list, left_on="Employee Code", right_on="employee_code", how="outer")
-                emp_list["employee_code"] = emp_list["employee_code"].fillna(emp_list["Employee Code"])
-                emp_list["employee_name"] = emp_list["employee_name"].fillna(emp_list["Employee Name"])
-        if q and not emp_list.empty:
-            mask = emp_list["employee_code"].astype(str).str.contains(q, case=False, na=False) | emp_list["employee_name"].astype(str).str.contains(q, case=False, na=False)
-            emp_list = emp_list[mask]
-        st.dataframe(emp_list, use_container_width=True, hide_index=True)
+        x = df.copy()
+        if q:
+            mask = x["employee_code"].astype(str).str.contains(q, case=False, na=False) | x["employee_name"].astype(str).str.contains(q, case=False, na=False)
+            x = x[mask]
+        st.dataframe(x, use_container_width=True, hide_index=True)
 
 # ============================================================
-# PAGE: ATTENDANCE MANAGEMENT
+# EMPLOYEE VIEW
 # ============================================================
-elif page == "📋 Attendance Management":
-    st.title("📋 Attendance Management")
+elif page == "👤 Employee View":
+    st.title("👤 Employee View")
     if daily.empty:
         st.info("No attendance data available.")
     else:
-        st.caption("First IN and Last OUT per employee/date calculation rule applied.")
+        employees = daily["Employee Code"].astype(str).unique().tolist()
+        code = st.selectbox("Select Employee", employees)
+        x = daily[daily["Employee Code"].astype(str) == str(code)].copy()
+        if not x.empty:
+            st.write(f"**Employee:** {x['Employee Name'].iloc[0]}")
+            st.dataframe(x, use_container_width=True, hide_index=True)
+
+# ============================================================
+# ATTENDANCE & OT
+# ============================================================
+elif page == "⏱️ Attendance & OT":
+    st.title("⏱️ Attendance & Overtime")
+    if daily.empty:
+        st.info("No attendance data available.")
+    else:
+        st.caption("Calculation: First IN + Last OUT for each employee/date. Middle punches are ignored for working-hour and OT calculation.")
         st.dataframe(daily, use_container_width=True, hide_index=True)
-        
-        st.subheader("Attendance Matrix")
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.map(lambda x: 1 if x == "Present" else 0)
+        att = att.applymap(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
+        st.subheader("Attendance Matrix")
         st.dataframe(att, use_container_width=True)
-
-# ============================================================
-# PAGE: OVERTIME MANAGEMENT
-# ============================================================
-elif page == "⏱️ Overtime Management":
-    st.title("⏱️ Overtime Management")
-    if daily.empty:
-        st.info("No attendance data available.")
-    else:
         ot = daily.copy()
         ot["OT Hours Decimal"] = ot["OT Hours"].apply(lambda x: hours_float(pd.to_timedelta(x)))
         otm = ot.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="OT Hours Decimal", aggfunc="sum", fill_value=0)
         otm["OT Grand Total Hours"] = otm.sum(axis=1)
-        st.subheader("Overtime (OT) Matrix (Hours)")
+        st.subheader("OT Matrix")
         st.dataframe(otm, use_container_width=True)
 
 # ============================================================
-# PAGE: SALARY MASTER
+# SALARY MASTER
 # ============================================================
 elif page == "⚙️ Salary Master":
     st.title("⚙️ Salary & Wage Master")
-    st.caption("Configure category-wise rates and employee-specific adjustments.")
-    
+    st.caption("Create category-wise wage rules and employee-specific extra wages/allowances. These values are saved in SQLite.")
+    st.subheader("Category-wise Wage Rules")
     with st.form("category_form"):
-        c1, c2, c3, c4 = st.columns(4)
-        cat = c1.text_input("Category Name", placeholder="Skilled / Unskilled")
+        c1,c2,c3,c4 = st.columns(4)
+        cat = c1.text_input("Category", placeholder="Skilled / Semi-Skilled / Helper")
         monthly = c2.number_input("Monthly Salary", min_value=0.0, step=100.0)
         workdays = c3.number_input("Working Days / Month", min_value=1.0, value=26.0, step=1.0)
-        daily_rate = c4.number_input("Daily Wage (0 = Auto)", min_value=0.0, step=10.0)
-        
-        c5, c6, c7, c8 = st.columns(4)
+        daily_rate = c4.number_input("Daily Wage (0 = auto)", min_value=0.0, step=10.0)
+        c5,c6,c7,c8 = st.columns(4)
         ot_rate = c5.number_input("OT Rate / Hour", min_value=0.0, step=10.0)
         att_allow = c6.number_input("Attendance Allowance / Day", min_value=0.0, step=10.0)
         food = c7.number_input("Food Allowance / Day", min_value=0.0, step=10.0)
         travel = c8.number_input("Travel Allowance / Day", min_value=0.0, step=10.0)
         other = st.number_input("Other Monthly Allowance", min_value=0.0, step=50.0)
-        
-        if st.form_submit_button("💾 Save / Update Category", type="primary"):
+        save = st.form_submit_button("💾 Save / Update Category", type="primary")
+        if save:
             if not cat.strip():
-                st.error("Enter category name.")
+                st.error("Enter a category name.")
             else:
                 effective_daily = daily_rate if daily_rate > 0 else (monthly / workdays if workdays else 0)
                 save_category((cat.strip(), monthly, workdays, effective_daily, ot_rate, att_allow, food, travel, other))
-                st.success("Category saved successfully.")
+                st.success("Category saved.")
                 st.rerun()
-                
-    st.subheader("Existing Categories")
     cats_show = load_categories()
     st.dataframe(cats_show, use_container_width=True, hide_index=True)
+    if not cats_show.empty:
+        delcat = st.selectbox("Delete Category", cats_show["category"].tolist())
+        if st.button("Delete Selected Category"):
+            if delcat != "General":
+                delete_category(delcat)
+                st.success("Category deleted.")
+                st.rerun()
+            else:
+                st.warning("General category cannot be deleted.")
+
+    st.divider()
+    st.subheader("Employee-specific Extra Wages / Allowances")
+    employee_options = []
+    if not df.empty:
+        employee_options = df[["employee_code","employee_name"]].drop_duplicates().astype(str)
+    if employee_options:
+        selected = st.selectbox("Employee", employee_options.apply(lambda r: f"{r['employee_code']} — {r['employee_name']}", axis=1).tolist())
+        code, name = selected.split(" — ", 1)
+        existing = employee_master[employee_master["employee_code"].astype(str) == code]
+        old = existing.iloc[0] if not existing.empty else None
+        with st.form("employee_salary_form"):
+            category_list = load_categories()["category"].tolist()
+            default_cat = str(old["category"]) if old is not None and str(old["category"]) in category_list else category_list[0]
+            ec1,ec2 = st.columns(2)
+            category = ec1.selectbox("Category", category_list, index=category_list.index(default_cat))
+            extra_w = ec2.number_input("Extra Wages", min_value=0.0, value=float(old["extra_wages"]) if old is not None else 0.0, step=50.0)
+            ec3,ec4,ec5 = st.columns(3)
+            extra_a = ec3.number_input("Extra Allowance", min_value=0.0, value=float(old["extra_allowance"]) if old is not None else 0.0, step=50.0)
+            deduction = ec4.number_input("Deduction", min_value=0.0, value=float(old["deduction"]) if old is not None else 0.0, step=50.0)
+            remarks = ec5.text_input("Remarks", value=str(old["remarks"]) if old is not None else "")
+            if st.form_submit_button("💾 Save Employee Salary Setup"):
+                save_employee_salary((code, name, category, extra_w, extra_a, deduction, remarks))
+                st.success("Employee salary setup saved.")
+                st.rerun()
+    else:
+        st.info("Import punching data first to create the employee list.")
+    em = load_employee_salary()
+    if not em.empty:
+        st.subheader("Employee Salary Setup")
+        st.dataframe(em, use_container_width=True, hide_index=True)
 
 # ============================================================
-# PAGE: SALARY & WAGES
+# SALARY & WAGES
 # ============================================================
 elif page == "💰 Salary & Wages":
-    st.title("💰 Salary & Wages Calculation")
-    st.caption("Regular wages + OT wages + Allowances + Extras - Deductions = Net Payable.")
+    st.title("💰 Salary & Wages")
+    st.caption("Category-wise wages + attendance-based pay + OT + extra wages + allowances = gross wages. Deductions are subtracted to show net payable.")
     if daily.empty:
         st.info("Import punching data first.")
     else:
         date_series = pd.to_datetime(daily["Date"])
         min_d, max_d = date_series.min().date(), date_series.max().date()
-        c1, c2, c3 = st.columns(3)
+        c1,c2,c3 = st.columns(3)
         from_d = c1.date_input("From Date", min_d)
         to_d = c2.date_input("To Date", max_d)
-        selected_cat = c3.selectbox("Category Filter", ["All"] + categories["category"].tolist())
-        
+        selected_category = c3.selectbox("Category Filter", ["All"] + load_categories()["category"].tolist())
         if from_d > to_d:
             st.error("From Date cannot be after To Date.")
         else:
             period_daily = daily[(pd.to_datetime(daily["Date"]).dt.date >= from_d) & (pd.to_datetime(daily["Date"]).dt.date <= to_d)].copy()
-            if selected_cat != "All":
-                codes = employee_master.query("category == @selected_cat")["employee_code"].astype(str).tolist()
+            if selected_category != "All":
+                codes = load_employee_salary().query("category == @selected_category")["employee_code"].astype(str).tolist()
                 period_daily = period_daily[period_daily["Employee Code"].astype(str).isin(codes)]
-            
-            salary = build_salary_report(period_daily, categories, employee_master)
+            salary = build_salary_report(period_daily, load_categories(), load_employee_salary(), duty_hours)
             if salary.empty:
-                st.warning("No records found for selected period/category.")
+                st.warning("No employee records match the selected period/category.")
             else:
-                c = st.columns(5)
+                c = st.columns(6)
                 c[0].metric("Employees", len(salary))
                 c[1].metric("Present Days", int(salary["Present Days"].sum()))
-                c[2].metric("Regular Wages", money(salary["Regular Wages"].sum()))
-                c[3].metric("OT Wages", money(salary["OT Wages"].sum()))
-                c[4].metric("Net Payable", money(salary["Net Payable"].sum()))
-                
-                st.subheader("Employee Salary Breakdown")
-                st.dataframe(salary, use_container_width=True, hide_index=True)
-                
-                xlsx = export_excel({"Salary Wages": salary, "Daily Attendance": period_daily})
-                st.download_button("📥 Download Salary Excel", xlsx, file_name=f"Salary_Report_{from_d}_{to_d}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                c[2].metric("OT Hours", f"{salary['OT Hours'].sum():,.2f}")
+                c[3].metric("Regular Wages", money(salary["Regular Wages"].sum()))
+                c[4].metric("OT Wages", money(salary["OT Wages"].sum()))
+                c[5].metric("Net Payable", money(salary["Net Payable"].sum()))
+                st.subheader("Employee-wise Salary / Wage Calculation")
+                display = salary.copy()
+                for col in ["Daily Wage","Regular Wages","OT Rate","OT Wages","Attendance Allowance Total","Food Allowance Total","Travel Allowance Total","Other Allowance Total","Extra Wages","Extra Allowance","Gross Wages","Deduction","Net Payable"]:
+                    display[col] = display[col].map(lambda x: round(float(x),2))
+                st.dataframe(display, use_container_width=True, hide_index=True)
+                st.subheader("Category-wise Wage Summary")
+                cat_summary = salary.groupby("Category", as_index=False).agg(
+                    Employees=("Employee Code","nunique"),
+                    Present_Days=("Present Days","sum"),
+                    OT_Hours=("OT Hours","sum"),
+                    Regular_Wages=("Regular Wages","sum"),
+                    OT_Wages=("OT Wages","sum"),
+                    Allowances=("Attendance Allowance Total","sum"),
+                    Extra_Wages=("Extra Wages","sum"),
+                    Extra_Allowance=("Extra Allowance","sum"),
+                    Gross_Wages=("Gross Wages","sum"),
+                    Deduction=("Deduction","sum"),
+                    Net_Payable=("Net Payable","sum"),
+                )
+                st.dataframe(cat_summary, use_container_width=True, hide_index=True)
+                xlsx = export_excel({"Salary Wages": salary, "Category Summary": cat_summary, "Daily Attendance": period_daily})
+                st.download_button("📥 Download Salary & Wages Excel", xlsx, file_name=f"Salary_Wages_{from_d}_{to_d}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================================================
-# PAGE: REPORTS & EXCEL EXPORT
+# REPORTS
 # ============================================================
-elif page == "📑 Reports & Excel Export":
-    st.title("📑 Reports & Excel Export")
+elif page == "📑 Reports":
+    st.title("📑 Reports & Export")
     if daily.empty:
-        st.info("No data available for export.")
+        st.info("No data available.")
     else:
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.map(lambda x: 1 if x == "Present" else 0)
+        att = att.applymap(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
-        
         ot = daily.copy()
         ot["OT Hours Decimal"] = ot["OT Hours"].apply(lambda x: hours_float(pd.to_timedelta(x)))
         otm = ot.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="OT Hours Decimal", aggfunc="sum", fill_value=0)
         otm["OT Grand Total Hours"] = otm.sum(axis=1)
-        
-        salary = build_salary_report(daily, categories, employee_master)
-        xlsx = export_excel({
-            "Daily Attendance": daily,
-            "Attendance Matrix": att.reset_index(),
-            "OT Matrix": otm.reset_index(),
-            "Salary Wages": salary
-        })
-        st.download_button("📥 Download Complete HR Report (Excel)", xlsx, file_name="Complete_HR_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        salary = build_salary_report(daily, load_categories(), load_employee_salary(), duty_hours)
+        xlsx = export_excel({"Daily Attendance": daily, "Attendance Matrix": att.reset_index(), "OT Matrix": otm.reset_index(), "Salary Wages": salary})
+        st.download_button("📥 Download Complete HR Excel Report", xlsx, file_name="HR_Attendance_OT_Salary_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.write("The Excel contains Daily Attendance, Attendance Matrix, OT Matrix and Salary/Wages.")
 
-# ============================================================
-# PAGE: USER MANAGEMENT (Admin Only)
-# ============================================================
-elif page == "⚙️ User Management":
-    st.title("⚙️ User Management")
-    st.caption("Manage system users and role permissions (Admin, HR, Accounts, Supervisor, Employee).")
-    
-    with st.form("user_form"):
-        c1, c2 = st.columns(2)
-        new_user = c1.text_input("Username")
-        new_pass = c2.text_input("Password", type="password")
-        c3, c4 = st.columns(2)
-        new_role = c3.selectbox("Role", ["Admin", "HR", "Accounts", "Supervisor", "Employee"])
-        new_fname = c4.text_input("Full Name")
-        
-        if st.form_submit_button("💾 Save / Create User", type="primary"):
-            if not new_user.strip() or not new_pass.strip():
-                st.error("Username and password required.")
-            else:
-                save_user(new_user.strip(), new_pass.strip(), new_role, new_fname.strip())
-                st.success(f"User {new_user} saved successfully.")
-                st.rerun()
-                
-    st.subheader("Existing System Users")
-    st.dataframe(load_users(), use_container_width=True, hide_index=True)
-
-# ============================================================
-# PAGE: EMPLOYEE VIEW
-# ============================================================
-elif page == "👤 Employee View":
-    st.title("👤 My Attendance & Salary View")
-    st.info("Logged in as employee view. You can review your attendance records.")
-    if daily.empty:
-        st.info("No attendance records found.")
-    else:
-        my_code = st.text_input("Enter your Employee Code to view records:")
-        if my_code:
-            x = daily[daily["Employee Code"].astype(str) == my_code.strip()].copy()
-            if x.empty:
-                st.warning("No records found for this employee code.")
-            else:
-                st.success(f"Found records for {x['Employee Name'].iloc[0]}")
-                st.dataframe(x, use_container_width=True, hide_index=True)
+st.sidebar.divider()
+st.sidebar.caption("Login: admin / password")
