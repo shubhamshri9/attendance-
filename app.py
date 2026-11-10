@@ -423,7 +423,7 @@ def export_excel(sheets):
     return bio
 
 # ============================================================
-# PREMIUM LOGIN SCREEN - MODERN HRMS DESIGN
+# PREMIUM LOGIN SCREEN - DISTINCTIVE HRMS DESIGN
 # ============================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -436,98 +436,103 @@ if not st.session_state.logged_in:
     <style>
     [data-testid="stAppViewContainer"] {
         background:
-            radial-gradient(circle at 12% 15%, rgba(59,130,246,.13), transparent 28%),
-            radial-gradient(circle at 88% 85%, rgba(14,165,233,.12), transparent 30%),
-            #f4f7fc;
+          radial-gradient(ellipse at 8% 12%, rgba(23,190,187,.16), transparent 30%),
+          radial-gradient(ellipse at 92% 88%, rgba(47,110,235,.14), transparent 32%),
+          #f3f6fb;
     }
     [data-testid="stHeader"] { background: transparent; }
-    .block-container { max-width: 1120px !important; padding-top: 5vh !important; }
+    .block-container { max-width: 1180px !important; padding-top: 5vh !important; padding-bottom: 4vh !important; }
+    .login-shell {
+        background: #fff; border: 1px solid #e5ebf3; border-radius: 28px;
+        overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
+    }
     .login-brand-panel {
-        min-height: 510px; height: 100%; padding: 48px 42px; border-radius: 26px;
-        color: #fff; background: linear-gradient(145deg,#102a56 0%,#174a83 58%,#087eaa 100%);
-        box-shadow: 0 24px 60px rgba(15,45,85,.18); position: relative; overflow: hidden;
-        display: flex; flex-direction: column; justify-content: space-between;
+        min-height: 545px; height: 100%; padding: 48px 44px;
+        color: #fff; background: linear-gradient(150deg,#101f3e 0%,#153d68 58%,#087f91 100%);
+        position: relative; overflow: hidden; display: flex; flex-direction: column;
+        justify-content: space-between;
     }
-    .login-brand-panel:after {
-        content: ""; position: absolute; width: 280px; height: 280px; border-radius: 50%;
-        border: 1px solid rgba(255,255,255,.16); right: -90px; bottom: -110px;
-        box-shadow: 0 0 0 28px rgba(255,255,255,.035), 0 0 0 58px rgba(255,255,255,.025);
-        pointer-events: none;
+    .login-brand-panel:before, .login-brand-panel:after {
+        content: ""; position: absolute; border-radius: 50%; pointer-events: none;
+        border: 1px solid rgba(255,255,255,.14);
     }
+    .login-brand-panel:before { width: 340px; height: 340px; right: -150px; top: -120px; box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 75px rgba(255,255,255,.025); }
+    .login-brand-panel:after { width: 210px; height: 210px; left: -120px; bottom: -100px; }
+    .login-brand-content, .login-brand-footer { position: relative; z-index: 1; }
     .login-brand-mark {
-        width: 58px; height: 58px; border-radius: 17px; display: grid; place-items: center;
-        background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.22);
-        font-size: 29px; margin-bottom: 28px;
+        width: 62px; height: 62px; display: grid; place-items: center; border-radius: 19px;
+        background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22);
+        font-size: 30px; margin-bottom: 35px; backdrop-filter: blur(8px);
     }
-    .login-brand-eyebrow { color: #a9d9f4; text-transform: uppercase; letter-spacing: 2px; font-size: 11px; font-weight: 800; }
-    .login-brand-heading { font-size: 34px; line-height: 1.2; font-weight: 800; margin: 13px 0 15px; color: white; }
-    .login-brand-copy { color: #d5e7f8; font-size: 15px; line-height: 1.75; max-width: 390px; }
-    .login-feature-list { margin-top: 34px; display: grid; gap: 15px; color: #eef7ff; font-size: 14px; }
-    .login-feature-list span { display: flex; gap: 11px; align-items: center; }
-    .login-brand-footer { color: #b7d4eb; font-size: 11px; margin-top: 38px; }
-    /* Keep the heading and Streamlit inputs in one native form container.
-       Avoid opening an HTML div in markdown and closing it around widgets:
-       Streamlit renders widgets as separate DOM blocks. */
-    div[data-testid="stForm"] {
-        min-height: 0; padding: 34px 34px 28px; border-radius: 26px;
-        background: rgba(255,255,255,.98); border: 1px solid #e4eaf3;
-        box-shadow: 0 24px 60px rgba(15,45,85,.09);
-    }
-    .login-form-eyebrow { color: #2872b9; text-transform: uppercase; letter-spacing: 1.8px; font-size: 11px; font-weight: 800; }
-    .login-form-heading { color: #142b4d; font-size: 29px; line-height: 1.2; font-weight: 800; margin: 8px 0 5px; }
-    .login-form-copy { color: #718096; font-size: 13px; margin-bottom: 18px; }
-    div[data-testid="stTextInput"] label { color: #34445b; font-size: 13px; font-weight: 650; }
+    .login-brand-eyebrow { color: #79e2df; text-transform: uppercase; letter-spacing: 2.2px; font-size: 10px; font-weight: 850; }
+    .login-brand-heading { color: #fff; font-size: 36px; line-height: 1.17; font-weight: 850; letter-spacing: -1.1px; margin: 14px 0 18px; }
+    .login-brand-copy { color: #d3e3f3; font-size: 14px; line-height: 1.8; max-width: 390px; }
+    .login-feature-list { display: grid; gap: 17px; margin-top: 38px; color: #f2fbff; font-size: 13px; }
+    .login-feature-list span { display: flex; align-items: center; gap: 12px; }
+    .login-feature-dot { width: 23px; height: 23px; display: inline-grid; place-items: center; border-radius: 8px; background: rgba(74,222,210,.15); color: #76eee2; font-size: 12px; }
+    .login-brand-footer { color: #a9c9df; font-size: 10px; letter-spacing: 1.5px; font-weight: 700; }
+    .login-form-panel { min-height: 545px; padding: 52px 48px 35px; display: flex; flex-direction: column; justify-content: center; }
+    .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
+    .login-form-heading { color: #142642; font-size: 30px; line-height: 1.2; font-weight: 850; letter-spacing: -.7px; margin: 10px 0 8px; }
+    .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 27px; }
+    div[data-testid="stForm"] { border: 0; padding: 0; background: transparent; box-shadow: none; }
+    div[data-testid="stTextInput"] label { color: #34445b; font-size: 12px; font-weight: 750; }
     div[data-testid="stTextInput"] input {
-        min-height: 48px; border-radius: 11px; border: 1px solid #dce5f0; background: #fbfdff;
+        min-height: 49px; border-radius: 12px; border: 1px solid #dce5ef;
+        background: #f9fbfd; padding-left: 13px;
     }
-    div[data-testid="stTextInput"] input:focus { border-color: #2878c7; box-shadow: 0 0 0 2px rgba(40,120,199,.12); }
+    div[data-testid="stTextInput"] input:focus { border-color: #0b999d; box-shadow: 0 0 0 3px rgba(11,153,157,.11); }
     div[data-testid="stFormSubmitButton"] button {
-        min-height: 49px; border-radius: 11px; color: white; font-weight: 750;
-        background: linear-gradient(100deg,#1764ad,#0786b5); border: 0;
-        box-shadow: 0 9px 20px rgba(23,100,173,.2);
+        min-height: 50px; margin-top: 10px; border-radius: 12px; color: #fff;
+        font-weight: 800; letter-spacing: .2px; border: 0;
+        background: linear-gradient(100deg,#087f91,#1764b2);
+        box-shadow: 0 10px 22px rgba(8,127,145,.22);
     }
-    div[data-testid="stFormSubmitButton"] button:hover { filter: brightness(1.06); color: white; }
-    .login-secure-note { text-align: center; color: #8492a6; font-size: 11px; margin-top: 18px; }
+    div[data-testid="stFormSubmitButton"] button:hover { color: #fff; filter: brightness(1.07); }
+    .login-secure-note { text-align: center; color: #8a97a8; font-size: 10px; margin-top: 22px; }
     @media (max-width: 760px) {
-        .block-container { padding: 18px 16px !important; }
-        .login-brand-panel { min-height: auto; padding: 28px 25px; }
-        .login-brand-heading { font-size: 27px; }
+        .block-container { padding: 14px 12px !important; }
+        .login-brand-panel { min-height: 0; padding: 30px 26px; }
+        .login-brand-heading { font-size: 28px; }
         .login-feature-list { display: none; }
-        .login-brand-footer { margin-top: 22px; }
-        div[data-testid="stForm"] { padding: 26px 22px 22px; }
+        .login-brand-footer { margin-top: 28px; }
+        .login-form-panel { min-height: 0; padding: 32px 25px; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    brand_col, form_col = st.columns([1.05, 0.95], gap="large")
-    with brand_col:
+    left_col, right_col = st.columns([1, 1], gap="small")
+    with left_col:
         st.markdown("""
-        <div class="login-brand-panel">
-            <div>
-                <div class="login-brand-mark">💼</div>
-                <div class="login-brand-eyebrow">Human Resource Management</div>
-                <div class="login-brand-heading">People. Attendance.<br>Payroll. In Control.</div>
-                <div class="login-brand-copy">
-                    One secure workspace to manage workforce attendance, overtime
-                    and salary operations with clarity and confidence.
-                </div>
-                <div class="login-feature-list">
-                    <span>✓ &nbsp; Attendance and punch management</span>
-                    <span>✓ &nbsp; Overtime tracking and reporting</span>
-                    <span>✓ &nbsp; Salary, wages and Excel reports</span>
-                </div>
+        <div class="login-shell">
+          <div class="login-brand-panel">
+            <div class="login-brand-content">
+              <div class="login-brand-mark">💼</div>
+              <div class="login-brand-eyebrow">Workforce management suite</div>
+              <div class="login-brand-heading">Your people.<br>Your operations.<br>One workspace.</div>
+              <div class="login-brand-copy">
+                A connected workspace for attendance, overtime and payroll
+                operations — designed to keep your workforce data organized.
+              </div>
+              <div class="login-feature-list">
+                <span><i class="login-feature-dot">✓</i> Attendance and punch records</span>
+                <span><i class="login-feature-dot">✓</i> Overtime monitoring and summaries</span>
+                <span><i class="login-feature-dot">✓</i> Salary, wages and Excel reports</span>
+              </div>
             </div>
-            <div class="login-brand-footer">HR ATTENDANCE &amp; PAYROLL PORTAL</div>
+            <div class="login-brand-footer">HR ATTENDANCE&nbsp; / &nbsp;OT&nbsp; / &nbsp;PAYROLL</div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
-    with form_col:
+    with right_col:
+        st.markdown('<div class="login-form-panel">', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="login-form-eyebrow">Secure portal access</div>
+        <div class="login-form-heading">Sign in to your account</div>
+        <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
+        """, unsafe_allow_html=True)
         with st.form("login_form"):
-            st.markdown("""
-            <div class="login-form-eyebrow">Welcome back</div>
-            <div class="login-form-heading">Sign in to your account</div>
-            <div class="login-form-copy">Enter your login details to continue to the portal.</div>
-            """, unsafe_allow_html=True)
             u_input = st.text_input("Username", placeholder="Enter your username")
             p_input = st.text_input("Password", type="password", placeholder="Enter your password")
             submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
@@ -545,7 +550,7 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else:
                     st.error("Invalid username or password.")
-        st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div></div>', unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
