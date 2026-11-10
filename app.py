@@ -441,13 +441,20 @@ if not st.session_state.logged_in:
           #f3f6fb;
     }
     [data-testid="stHeader"] { background: transparent; }
-    .block-container { max-width: 1180px !important; padding-top: 5vh !important; padding-bottom: 4vh !important; }
+    .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
+    /* Keep the brand panel and sign-in panel in one horizontal row on desktop. */
+    .block-container [data-testid="stHorizontalBlock"]:first-of-type {
+        flex-wrap: nowrap !important; align-items: stretch !important; gap: 1.5rem !important;
+    }
+    .block-container [data-testid="stHorizontalBlock"]:first-of-type > [data-testid="column"] {
+        min-width: 0 !important; flex: 1 1 0 !important;
+    }
     .login-shell {
-        background: #fff; border: 1px solid #e5ebf3; border-radius: 28px;
-        overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
+        height: 100%; min-height: 545px; background: #fff; border: 1px solid #e5ebf3;
+        border-radius: 28px; overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
     }
     .login-brand-panel {
-        min-height: 545px; height: 100%; padding: 48px 44px;
+        min-height: 545px; height: 100%; box-sizing: border-box; padding: 48px 44px;
         color: #fff; background: linear-gradient(150deg,#101f3e 0%,#153d68 58%,#087f91 100%);
         position: relative; overflow: hidden; display: flex; flex-direction: column;
         justify-content: space-between;
@@ -471,7 +478,12 @@ if not st.session_state.logged_in:
     .login-feature-list span { display: flex; align-items: center; gap: 12px; }
     .login-feature-dot { width: 23px; height: 23px; display: inline-grid; place-items: center; border-radius: 8px; background: rgba(74,222,210,.15); color: #76eee2; font-size: 12px; }
     .login-brand-footer { color: #a9c9df; font-size: 10px; letter-spacing: 1.5px; font-weight: 700; }
-    .login-form-panel { min-height: 545px; padding: 52px 48px 35px; display: flex; flex-direction: column; justify-content: center; }
+    .login-form-panel {
+        box-sizing: border-box; min-height: 545px; height: 100%; padding: 48px 42px;
+        display: flex; flex-direction: column; justify-content: center;
+        background: #fff; border: 1px solid #e5ebf3; border-radius: 28px;
+        box-shadow: 0 28px 80px rgba(22,42,75,.09);
+    }
     .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
     .login-form-heading { color: #142642; font-size: 30px; line-height: 1.2; font-weight: 850; letter-spacing: -.7px; margin: 10px 0 8px; }
     .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 27px; }
@@ -496,12 +508,12 @@ if not st.session_state.logged_in:
         .login-brand-heading { font-size: 28px; }
         .login-feature-list { display: none; }
         .login-brand-footer { margin-top: 28px; }
-        .login-form-panel { min-height: 0; padding: 32px 25px; }
+        .login-form-panel { min-height: 0; padding: 30px 24px; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1, 1], gap="small")
+    left_col, right_col = st.columns([1.08, 0.92], gap="large")
     with left_col:
         st.markdown("""
         <div class="login-shell">
@@ -526,19 +538,15 @@ if not st.session_state.logged_in:
         """, unsafe_allow_html=True)
 
     with right_col:
-        st.markdown('<div class="login-form-panel">', unsafe_allow_html=True)
         st.markdown("""
-        <div class="login-form-eyebrow">Secure portal access</div>
-        <div class="login-form-heading">Sign in to your account</div>
-        <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
+        <div class="login-form-panel">
+          <div class="login-form-eyebrow">Secure portal access</div>
+          <div class="login-form-heading">Sign in to your account</div>
+          <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
         """, unsafe_allow_html=True)
         with st.form("login_form"):
-            # Keep Username and Password aligned side by side on the same row.
-            user_col, pass_col = st.columns(2, gap="medium")
-            with user_col:
-                u_input = st.text_input("Login ID / Username", placeholder="Enter login ID")
-            with pass_col:
-                p_input = st.text_input("Password", type="password", placeholder="Enter password")
+            u_input = st.text_input("Username", placeholder="Enter your username")
+            p_input = st.text_input("Password", type="password", placeholder="Enter your password")
             submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
             if submit:
                 conn = get_connection()
@@ -554,7 +562,10 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else:
                     st.error("Invalid username or password.")
-        st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div></div>', unsafe_allow_html=True)
+        st.markdown("""
+          <div class="login-secure-note">🔒 Secure access · Authorized users only</div>
+        </div>
+        """, unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
