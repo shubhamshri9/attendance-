@@ -329,6 +329,7 @@ def normalize_punching(raw):
     data = data.dropna(subset=["Transaction Date", "Time Parsed", "Employee Code"])
     return data
 
+@st.cache_data(show_spinner=False)
 def build_daily_report(punches, duty_hours=8):
     if punches.empty:
         return pd.DataFrame()
@@ -429,37 +430,143 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     st.markdown("""
     <style>
-    .login-wrap { max-width: 440px; margin: 6vh auto; padding: 40px; border-radius: 20px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
-    .login-logo { font-size: 48px; text-align: center; margin-bottom: 10px; }
-    .login-title { text-align: center; font-size: 26px; font-weight: 700; color: #1e293b; }
-    .login-sub { text-align: center; color: #64748b; margin-bottom: 30px; font-size: 14px; }
+    [data-testid="stAppViewContainer"] {
+        background:
+          radial-gradient(ellipse at 8% 12%, rgba(23,190,187,.16), transparent 30%),
+          radial-gradient(ellipse at 92% 88%, rgba(47,110,235,.14), transparent 32%),
+          #f3f6fb;
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
+    /* Keep the pre-login screen independent from the authenticated workspace. */
+    section[data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
+    .block-container [data-testid="stHorizontalBlock"] {
+        align-items: stretch !important; gap: 1.5rem !important; flex-wrap: nowrap !important;
+    }
+    .block-container [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        min-width: 0 !important;
+    }
+    .login-shell {
+        min-height: 545px; height: 100%; background: #fff; border: 1px solid #e5ebf3;
+        border-radius: 28px; overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
+    }
+    .login-brand-panel {
+        min-height: 545px; height: 100%; box-sizing: border-box; padding: 48px 44px;
+        color: #fff; background: linear-gradient(150deg,#101f3e 0%,#153d68 58%,#087f91 100%);
+        position: relative; overflow: hidden; display: flex; flex-direction: column;
+        justify-content: space-between;
+    }
+    .login-brand-panel:before, .login-brand-panel:after {
+        content: ""; position: absolute; border-radius: 50%; pointer-events: none;
+        border: 1px solid rgba(255,255,255,.14);
+    }
+    .login-brand-panel:before { width: 340px; height: 340px; right: -150px; top: -120px; box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 75px rgba(255,255,255,.025); }
+    .login-brand-panel:after { width: 210px; height: 210px; left: -120px; bottom: -100px; }
+    .login-brand-content, .login-brand-footer { position: relative; z-index: 1; }
+    .login-brand-mark {
+        width: 62px; height: 62px; display: grid; place-items: center; border-radius: 19px;
+        background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22);
+        font-size: 30px; margin-bottom: 35px; backdrop-filter: blur(8px);
+    }
+    .login-brand-eyebrow { color: #79e2df; text-transform: uppercase; letter-spacing: 2.2px; font-size: 10px; font-weight: 850; }
+    .login-brand-heading { color: #fff; font-size: 36px; line-height: 1.17; font-weight: 850; letter-spacing: -1.1px; margin: 14px 0 18px; }
+    .login-brand-copy { color: #d3e3f3; font-size: 14px; line-height: 1.8; max-width: 390px; }
+    .login-feature-list { display: grid; gap: 17px; margin-top: 38px; color: #f2fbff; font-size: 13px; }
+    .login-feature-list span { display: flex; align-items: center; gap: 12px; }
+    .login-feature-dot { width: 23px; height: 23px; display: inline-grid; place-items: center; border-radius: 8px; background: rgba(74,222,210,.15); color: #76eee2; font-size: 12px; }
+    .login-brand-footer { color: #a9c9df; font-size: 10px; letter-spacing: 1.5px; font-weight: 700; }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        min-height: 545px; box-sizing: border-box; display: flex; justify-content: center;
+        border: 1px solid #e5ebf3 !important; border-radius: 28px !important;
+        background: #fff !important; padding: 42px 38px !important;
+        box-shadow: 0 28px 80px rgba(22,42,75,.09) !important;
+    }
+    .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
+    .login-form-heading {
+        color: #142642; font-size: clamp(21px, 2vw, 25px); line-height: 1.25;
+        font-weight: 850; letter-spacing: -.55px; margin: 10px 0 8px;
+        white-space: normal; overflow-wrap: anywhere;
+    }
+    .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
+    div[data-testid="stForm"] { border: 0; padding: 0; background: transparent; box-shadow: none; }
+    div[data-testid="stTextInput"] { width: 100%; margin-bottom: 12px; }
+    div[data-testid="stTextInput"] label { color: #34445b; font-size: 12px; font-weight: 750; }
+    div[data-testid="stTextInput"] input {
+        min-height: 49px; width: 100%; box-sizing: border-box; border-radius: 12px;
+        border: 1px solid #dce5ef; background: #f9fbfd; padding-left: 13px;
+    }
+    div[data-testid="stTextInput"] input:focus { border-color: #0b999d; box-shadow: 0 0 0 3px rgba(11,153,157,.11); }
+    div[data-testid="stFormSubmitButton"] { width: 100%; }
+    div[data-testid="stFormSubmitButton"] button {
+        min-height: 50px; width: 100%; margin-top: 10px; border-radius: 12px; color: #fff;
+        font-weight: 800; letter-spacing: .2px; border: 0;
+        background: linear-gradient(100deg,#087f91,#1764b2);
+        box-shadow: 0 10px 22px rgba(8,127,145,.22);
+    }
+    div[data-testid="stFormSubmitButton"] button:hover { color: #fff; filter: brightness(1.07); }
+    .login-secure-note { text-align: center; color: #8a97a8; font-size: 10px; margin-top: 22px; }
+    @media (max-width: 760px) {
+        .block-container { padding: 14px 12px !important; }
+        .block-container [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+        .login-brand-panel { min-height: 0; padding: 30px 26px; }
+        .login-brand-heading { font-size: 28px; }
+        .login-feature-list { display: none; }
+        .login-brand-footer { margin-top: 28px; }
+        div[data-testid="stVerticalBlockBorderWrapper"] { min-height: 0; padding: 28px 24px !important; }
+    }
     </style>
-    <div class="login-wrap">
-        <div class="login-logo">💼</div>
-        <div class="login-title">HR Payroll Portal</div>
-        <div class="login-sub">Secure Attendance, Overtime & Wage System</div>
-    </div>
     """, unsafe_allow_html=True)
-    
-    with st.form("login_form"):
-        u_input = st.text_input("Username")
-        p_input = st.text_input("Password", type="password")
-        submit = st.form_submit_button("🔐 Secure Login", use_container_width=True)
-        if submit:
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT password_hash, role, full_name FROM users WHERE username=?", (u_input.strip(),))
-            row = cur.fetchone()
-            conn.close()
-            if row and row[0] == hash_password(p_input):
-                st.session_state.logged_in = True
-                st.session_state.username = u_input.strip()
-                st.session_state.role = row[1]
-                st.session_state.full_name = row[2]
-                st.success("Login successful!")
-                st.rerun()
-            else:
-                st.error("Invalid username or password.")
+
+    left_col, right_col = st.columns([1.05, 0.95], gap="large")
+    with left_col:
+        st.markdown("""
+        <div class="login-shell">
+          <div class="login-brand-panel">
+            <div class="login-brand-content">
+              <div class="login-brand-mark">💼</div>
+              <div class="login-brand-eyebrow">Workforce management suite</div>
+              <div class="login-brand-heading">Your people.<br>Your operations.<br>One workspace.</div>
+              <div class="login-brand-copy">
+                A connected workspace for attendance, overtime and payroll
+                operations — designed to keep your workforce data organized.
+              </div>
+              <div class="login-feature-list">
+                <span><i class="login-feature-dot">✓</i> Attendance and punch records</span>
+                <span><i class="login-feature-dot">✓</i> Overtime monitoring and summaries</span>
+                <span><i class="login-feature-dot">✓</i> Salary, wages and Excel reports</span>
+              </div>
+            </div>
+            <div class="login-brand-footer">HR ATTENDANCE&nbsp; / &nbsp;OT&nbsp; / &nbsp;PAYROLL</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right_col:
+        with st.container(border=True):
+            st.markdown("""
+            <div class="login-form-eyebrow">Secure portal access</div>
+            <div class="login-form-heading">Sign in to your account</div>
+            <div class="login-form-copy">Welcome back. Enter your credentials below to continue.</div>
+            """, unsafe_allow_html=True)
+            with st.form("login_form"):
+                u_input = st.text_input("Username", placeholder="Enter your username")
+                p_input = st.text_input("Password", type="password", placeholder="Enter your password")
+                submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
+                if submit:
+                    conn = get_connection()
+                    cur = conn.cursor()
+                    cur.execute("SELECT password_hash, role, full_name FROM users WHERE username=?", (u_input.strip(),))
+                    row = cur.fetchone()
+                    conn.close()
+                    if row and row[0] == hash_password(p_input):
+                        st.session_state.logged_in = True
+                        st.session_state.username = u_input.strip()
+                        st.session_state.role = row[1]
+                        st.session_state.full_name = row[2]
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+            st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
