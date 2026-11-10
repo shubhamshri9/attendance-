@@ -442,15 +442,14 @@ if not st.session_state.logged_in:
     }
     [data-testid="stHeader"] { background: transparent; }
     .block-container { max-width: 1380px !important; padding: 5vh 2rem 4vh !important; }
-    /* Keep the brand panel and sign-in panel in one horizontal row on desktop. */
-    .block-container [data-testid="stHorizontalBlock"]:first-of-type {
-        flex-wrap: nowrap !important; align-items: stretch !important; gap: 1.5rem !important;
+    .block-container [data-testid="stHorizontalBlock"] {
+        align-items: stretch !important; gap: 1.5rem !important; flex-wrap: nowrap !important;
     }
-    .block-container [data-testid="stHorizontalBlock"]:first-of-type > [data-testid="column"] {
-        min-width: 0 !important; flex: 1 1 0 !important;
+    .block-container [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        min-width: 0 !important;
     }
     .login-shell {
-        height: 100%; min-height: 545px; background: #fff; border: 1px solid #e5ebf3;
+        min-height: 545px; height: 100%; background: #fff; border: 1px solid #e5ebf3;
         border-radius: 28px; overflow: hidden; box-shadow: 0 28px 80px rgba(22,42,75,.13);
     }
     .login-brand-panel {
@@ -478,33 +477,30 @@ if not st.session_state.logged_in:
     .login-feature-list span { display: flex; align-items: center; gap: 12px; }
     .login-feature-dot { width: 23px; height: 23px; display: inline-grid; place-items: center; border-radius: 8px; background: rgba(74,222,210,.15); color: #76eee2; font-size: 12px; }
     .login-brand-footer { color: #a9c9df; font-size: 10px; letter-spacing: 1.5px; font-weight: 700; }
-    .login-form-panel {
-        box-sizing: border-box; min-height: 545px; height: 100%; padding: 48px 42px;
-        display: flex; flex-direction: column; justify-content: center;
-        background: #fff; border: 1px solid #e5ebf3; border-radius: 28px;
-        box-shadow: 0 28px 80px rgba(22,42,75,.09);
-    }
     div[data-testid="stVerticalBlockBorderWrapper"] {
+        min-height: 545px; box-sizing: border-box; display: flex; justify-content: center;
         border: 1px solid #e5ebf3 !important; border-radius: 28px !important;
-        background: #fff !important; padding: 38px 34px !important;
+        background: #fff !important; padding: 42px 38px !important;
         box-shadow: 0 28px 80px rgba(22,42,75,.09) !important;
     }
     .login-form-eyebrow { color: #078b91; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; font-weight: 850; }
     .login-form-heading {
-        color: #142642; font-size: 25px; line-height: 1.25; font-weight: 850;
-        letter-spacing: -.55px; margin: 10px 0 8px; white-space: nowrap;
-        width: 100%; max-width: 100%;
+        color: #142642; font-size: clamp(21px, 2vw, 25px); line-height: 1.25;
+        font-weight: 850; letter-spacing: -.55px; margin: 10px 0 8px;
+        white-space: normal; overflow-wrap: anywhere;
     }
-    .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 27px; }
+    .login-form-copy { color: #7a8799; font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
     div[data-testid="stForm"] { border: 0; padding: 0; background: transparent; box-shadow: none; }
+    div[data-testid="stTextInput"] { width: 100%; margin-bottom: 12px; }
     div[data-testid="stTextInput"] label { color: #34445b; font-size: 12px; font-weight: 750; }
     div[data-testid="stTextInput"] input {
-        min-height: 49px; border-radius: 12px; border: 1px solid #dce5ef;
-        background: #f9fbfd; padding-left: 13px;
+        min-height: 49px; width: 100%; box-sizing: border-box; border-radius: 12px;
+        border: 1px solid #dce5ef; background: #f9fbfd; padding-left: 13px;
     }
     div[data-testid="stTextInput"] input:focus { border-color: #0b999d; box-shadow: 0 0 0 3px rgba(11,153,157,.11); }
+    div[data-testid="stFormSubmitButton"] { width: 100%; }
     div[data-testid="stFormSubmitButton"] button {
-        min-height: 50px; margin-top: 10px; border-radius: 12px; color: #fff;
+        min-height: 50px; width: 100%; margin-top: 10px; border-radius: 12px; color: #fff;
         font-weight: 800; letter-spacing: .2px; border: 0;
         background: linear-gradient(100deg,#087f91,#1764b2);
         box-shadow: 0 10px 22px rgba(8,127,145,.22);
@@ -513,18 +509,17 @@ if not st.session_state.logged_in:
     .login-secure-note { text-align: center; color: #8a97a8; font-size: 10px; margin-top: 22px; }
     @media (max-width: 760px) {
         .block-container { padding: 14px 12px !important; }
+        .block-container [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
         .login-brand-panel { min-height: 0; padding: 30px 26px; }
         .login-brand-heading { font-size: 28px; }
         .login-feature-list { display: none; }
         .login-brand-footer { margin-top: 28px; }
-        .login-form-panel { min-height: 0; padding: 30px 24px; }
-        .login-form-heading { font-size: 23px; white-space: normal; }
-        div[data-testid="stVerticalBlockBorderWrapper"] { padding: 24px 20px !important; }
+        div[data-testid="stVerticalBlockBorderWrapper"] { min-height: 0; padding: 28px 24px !important; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1, 1], gap="large")
+    left_col, right_col = st.columns([1.05, 0.95], gap="large")
     with left_col:
         st.markdown("""
         <div class="login-shell">
