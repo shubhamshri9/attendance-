@@ -156,32 +156,35 @@ def load_users():
 # WRITE & MUTATION HELPERS
 # ============================================================
 def insert_punching_data(data):
+    """Bulk insert normalized punch rows; existing duplicate handling is preserved."""
+    if data.empty:
+        return 0, 0
+    cols = ["Transaction Date", "Time", "Department", "Employee Code", "Employee Name", "Location Name", "ENTRY/EXIT"]
+    sql = """INSERT OR IGNORE INTO punching_data
+        (transaction_date, punch_time, department, employee_code, employee_name, location_name, entry_exit)
+        VALUES (?, ?, ?, ?, ?, ?, ?)"""
     conn = get_connection()
-    cur = conn.cursor()
     inserted = 0
-    duplicates = 0
-    for _, row in data.iterrows():
-        try:
-            cur.execute("""
-                INSERT OR IGNORE INTO punching_data
-                (transaction_date, punch_time, department, employee_code,
-                 employee_name, location_name, entry_exit)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(row["Transaction Date"]), str(row["Time"]),
-                str(row["Department"]), str(row["Employee Code"]),
-                str(row["Employee Name"]), str(row["Location Name"]),
-                str(row["ENTRY/EXIT"]),
-            ))
-            if cur.rowcount == 1:
-                inserted += 1
-            else:
-                duplicates += 1
-        except Exception:
-            duplicates += 1
-    conn.commit()
-    conn.close()
-    st.cache_data.clear()
+    try:
+        cur = conn.cursor()
+        rows = data[cols].itertuples(index=False, name=None)
+        while True:
+            batch = []
+            try:
+                for _ in range(5000):
+                    batch.append(tuple(str(v) for v in next(rows)))
+            except StopIteration:
+                pass
+            if not batch:
+                break
+            before = conn.total_changes
+            cur.executemany(sql, batch)
+            inserted += conn.total_changes - before
+        conn.commit()
+    finally:
+        conn.close()
+    duplicates = len(data) - inserted
+    load_data.clear()
     return inserted, duplicates
 
 def clear_punching_data():
