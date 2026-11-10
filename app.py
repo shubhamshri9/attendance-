@@ -544,15 +544,21 @@ else:
 if page == "📤 Upload Data":
     st.title("📤 Upload Punching Data")
     st.info("Upload Excel/CSV punching logs. Entry/in = IN; Exit/out = OUT.")
-    uploaded = st.file_uploader("Choose Excel or CSV file", type=["xlsx","xls","csv"])
+    uploaded = st.file_uploader(
+        "Choose Excel or CSV file (maximum 20 MB)",
+        type=["xlsx", "xls", "csv"],
+        max_upload_size=20,
+    )
     if uploaded:
         try:
+            file_buffer = BytesIO(uploaded.getvalue())
             if uploaded.name.lower().endswith(".csv"):
-                raw = pd.read_csv(uploaded)
+                raw = pd.read_csv(file_buffer, low_memory=False)
             else:
-                book = pd.ExcelFile(uploaded)
+                book = pd.ExcelFile(file_buffer)
                 preferred = next((s for s in book.sheet_names if "punch" in s.lower() or "puching" in s.lower()), book.sheet_names[0])
-                raw = pd.read_excel(uploaded, sheet_name=preferred)
+                file_buffer.seek(0)
+                raw = pd.read_excel(file_buffer, sheet_name=preferred)
             normalized = normalize_punching(raw)
             st.success(f"Detected {len(normalized):,} valid punch records.")
             st.dataframe(normalized.drop(columns=["Time Parsed"], errors="ignore").head(50), use_container_width=True)
