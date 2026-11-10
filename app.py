@@ -434,7 +434,6 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     st.markdown("""
     <style>
-    /* Login-only styling: does not change the authenticated portal navigation. */
     [data-testid="stAppViewContainer"] {
         background:
             radial-gradient(circle at 12% 15%, rgba(59,130,246,.13), transparent 28%),
@@ -445,7 +444,7 @@ if not st.session_state.logged_in:
     .block-container { max-width: 1120px !important; padding-top: 5vh !important; }
     .login-brand-panel {
         min-height: 510px; height: 100%; padding: 48px 42px; border-radius: 26px;
-        color: #ffffff; background: linear-gradient(145deg,#102a56 0%,#174a83 58%,#087eaa 100%);
+        color: #fff; background: linear-gradient(145deg,#102a56 0%,#174a83 58%,#087eaa 100%);
         box-shadow: 0 24px 60px rgba(15,45,85,.18); position: relative; overflow: hidden;
         display: flex; flex-direction: column; justify-content: space-between;
     }
@@ -453,6 +452,7 @@ if not st.session_state.logged_in:
         content: ""; position: absolute; width: 280px; height: 280px; border-radius: 50%;
         border: 1px solid rgba(255,255,255,.16); right: -90px; bottom: -110px;
         box-shadow: 0 0 0 28px rgba(255,255,255,.035), 0 0 0 58px rgba(255,255,255,.025);
+        pointer-events: none;
     }
     .login-brand-mark {
         width: 58px; height: 58px; border-radius: 17px; display: grid; place-items: center;
@@ -465,13 +465,17 @@ if not st.session_state.logged_in:
     .login-feature-list { margin-top: 34px; display: grid; gap: 15px; color: #eef7ff; font-size: 14px; }
     .login-feature-list span { display: flex; gap: 11px; align-items: center; }
     .login-brand-footer { color: #b7d4eb; font-size: 11px; margin-top: 38px; }
-    .login-form-panel {
-        min-height: 510px; padding: 42px 38px; border-radius: 26px; background: rgba(255,255,255,.96);
-        border: 1px solid #e4eaf3; box-shadow: 0 24px 60px rgba(15,45,85,.09);
+    /* Keep the heading and Streamlit inputs in one native form container.
+       Avoid opening an HTML div in markdown and closing it around widgets:
+       Streamlit renders widgets as separate DOM blocks. */
+    div[data-testid="stForm"] {
+        min-height: 0; padding: 34px 34px 28px; border-radius: 26px;
+        background: rgba(255,255,255,.98); border: 1px solid #e4eaf3;
+        box-shadow: 0 24px 60px rgba(15,45,85,.09);
     }
     .login-form-eyebrow { color: #2872b9; text-transform: uppercase; letter-spacing: 1.8px; font-size: 11px; font-weight: 800; }
-    .login-form-heading { color: #142b4d; font-size: 29px; font-weight: 800; margin: 8px 0 5px; }
-    .login-form-copy { color: #718096; font-size: 13px; margin-bottom: 26px; }
+    .login-form-heading { color: #142b4d; font-size: 29px; line-height: 1.2; font-weight: 800; margin: 8px 0 5px; }
+    .login-form-copy { color: #718096; font-size: 13px; margin-bottom: 18px; }
     div[data-testid="stTextInput"] label { color: #34445b; font-size: 13px; font-weight: 650; }
     div[data-testid="stTextInput"] input {
         min-height: 48px; border-radius: 11px; border: 1px solid #dce5f0; background: #fbfdff;
@@ -483,14 +487,14 @@ if not st.session_state.logged_in:
         box-shadow: 0 9px 20px rgba(23,100,173,.2);
     }
     div[data-testid="stFormSubmitButton"] button:hover { filter: brightness(1.06); color: white; }
-    .login-secure-note { text-align: center; color: #8492a6; font-size: 11px; margin-top: 22px; }
+    .login-secure-note { text-align: center; color: #8492a6; font-size: 11px; margin-top: 18px; }
     @media (max-width: 760px) {
         .block-container { padding: 18px 16px !important; }
         .login-brand-panel { min-height: auto; padding: 28px 25px; }
         .login-brand-heading { font-size: 27px; }
         .login-feature-list { display: none; }
         .login-brand-footer { margin-top: 22px; }
-        .login-form-panel { min-height: auto; padding: 30px 24px; }
+        div[data-testid="stForm"] { padding: 26px 22px 22px; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -518,13 +522,12 @@ if not st.session_state.logged_in:
         """, unsafe_allow_html=True)
 
     with form_col:
-        st.markdown("""
-        <div class="login-form-panel">
+        with st.form("login_form"):
+            st.markdown("""
             <div class="login-form-eyebrow">Welcome back</div>
             <div class="login-form-heading">Sign in to your account</div>
             <div class="login-form-copy">Enter your login details to continue to the portal.</div>
-        """, unsafe_allow_html=True)
-        with st.form("login_form"):
+            """, unsafe_allow_html=True)
             u_input = st.text_input("Username", placeholder="Enter your username")
             p_input = st.text_input("Password", type="password", placeholder="Enter your password")
             submit = st.form_submit_button("Sign in securely  →", use_container_width=True)
@@ -542,7 +545,7 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else:
                     st.error("Invalid username or password.")
-        st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-secure-note">🔒 Secure access · Authorized users only</div>', unsafe_allow_html=True)
     st.stop()
 
 # ============================================================
