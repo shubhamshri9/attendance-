@@ -78,6 +78,8 @@ def create_database():
             full_name TEXT
         )
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_punch_date_employee ON punching_data(transaction_date, employee_code)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_punch_employee_date ON punching_data(employee_code, transaction_date)")
     conn.commit()
     conn.close()
 
