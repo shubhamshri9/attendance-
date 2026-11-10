@@ -27,7 +27,6 @@ def hash_password(password: str) -> str:
 # DATABASE & CACHED RESOURCES
 # ============================================================
 @st.cache_resource
-py_conn = None
 def get_connection():
     return sqlite3.connect(DB_FILE, check_same_thread=False)
 
@@ -87,7 +86,6 @@ def seed_default_users_and_categories():
     conn = get_connection()
     cur = conn.cursor()
     
-    # Default Categories
     cur.execute("SELECT COUNT(*) FROM salary_categories")
     if cur.fetchone()[0] == 0:
         cur.execute("""
@@ -97,7 +95,6 @@ def seed_default_users_and_categories():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, ("General", 15000, 26, 576.92, 75, 50, 40, 50, 0))
 
-    # Default Users (Admin, HR, Accounts, Supervisor, Employee)
     default_users = [
         ("admin", hash_password("admin123"), "Admin", "System Administrator"),
         ("hr", hash_password("hr123"), "HR", "HR Manager"),
@@ -245,13 +242,6 @@ def save_user(username, password, role, full_name):
             role=excluded.role,
             full_name=excluded.full_name
     """, (username, phash, role, full_name))
-    conn.commit()
-    conn.close()
-    st.cache_data.clear()
-
-def delete_user_db(username):
-    conn = get_connection()
-    conn.execute("DELETE FROM users WHERE username=?", (username,))
     conn.commit()
     conn.close()
     st.cache_data.clear()
@@ -482,7 +472,6 @@ st.sidebar.title("💼 HR Payroll Portal")
 st.sidebar.markdown(f"**Welcome, {st.session_state.full_name}**  \n*Role: {role}*")
 st.sidebar.divider()
 
-# Define accessible pages based on role
 pages_map = {
     "Admin": [
         "📊 HR Dashboard", "👥 Employee Management", "📋 Attendance Management",
@@ -626,7 +615,7 @@ elif page == "📋 Attendance Management":
         
         st.subheader("Attendance Matrix")
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.applymap(lambda x: 1 if x == "Present" else 0)
+        att = att.map(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
         st.dataframe(att, use_container_width=True)
 
@@ -729,7 +718,7 @@ elif page == "📑 Reports & Excel Export":
         st.info("No data available for export.")
     else:
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
-        att = att.applymap(lambda x: 1 if x == "Present" else 0)
+        att = att.map(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
         
         ot = daily.copy()
