@@ -634,44 +634,51 @@ elif page == "⏱️ Attendance & OT":
         st.info("No attendance data available.")
     else:
         st.caption("Calculation: First IN + Last OUT for each employee/date. Middle punches are ignored for working-hour and OT calculation.")
-        st.dataframe(daily, use_container_width=True, hide_index=True)
+
         att = daily.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="Status", aggfunc="first")
         att = att.applymap(lambda x: 1 if x == "Present" else 0)
         att["Grand Total"] = att.sum(axis=1)
-        st.subheader("Attendance Matrix")
-        st.dataframe(att, use_container_width=True)
         ot = daily.copy()
         ot["OT Hours Decimal"] = ot["OT Hours"].apply(lambda x: hours_float(pd.to_timedelta(x)))
         otm = ot.pivot_table(index=["Employee Code","Employee Name"], columns="Date", values="OT Hours Decimal", aggfunc="sum", fill_value=0)
         otm["OT Grand Total Hours"] = otm.sum(axis=1)
-        st.subheader("OT Matrix")
-        st.dataframe(otm, use_container_width=True)
 
-        st.subheader("📥 Download Attendance & OT")
-        export_daily = daily.copy()
-        export_att = att.reset_index()
-        export_ot = otm.reset_index()
+        # Keep the page compact: users can open the View panel when they need details.
+        st.subheader("Attendance & OT Records")
+        st.caption(f"Records available: {len(daily):,} daily employee records")
+        with st.expander("👁️ View Attendance & OT Details", expanded=False):
+            st.markdown("**Daily Attendance & Overtime**")
+            st.dataframe(daily, use_container_width=True, hide_index=True)
+            st.markdown("**Attendance Matrix**")
+            st.dataframe(att, use_container_width=True)
+            st.markdown("**OT Matrix**")
+            st.dataframe(otm, use_container_width=True)
+
+        st.subheader("📥 Download Reports")
         download_file = export_excel({
-            "Daily Attendance OT": export_daily,
-            "Attendance Matrix": export_att,
-            "OT Matrix": export_ot
+            "Daily Attendance OT": daily.copy(),
+            "Attendance Matrix": att.reset_index(),
+            "OT Matrix": otm.reset_index()
         })
-        st.download_button(
-            "📥 Download Attendance & OT Excel",
-            data=download_file,
-            file_name=f"Attendance_OT_Report_{date.today().isoformat()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
-            use_container_width=True
-        )
         csv_data = daily.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "Download Daily Attendance CSV",
-            data=csv_data,
-            file_name=f"Daily_Attendance_OT_{date.today().isoformat()}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        d1, d2 = st.columns(2)
+        with d1:
+            st.download_button(
+                "📥 Download Excel Report",
+                data=download_file,
+                file_name=f"Attendance_OT_Report_{date.today().isoformat()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary",
+                use_container_width=True
+            )
+        with d2:
+            st.download_button(
+                "📄 Download CSV",
+                data=csv_data,
+                file_name=f"Daily_Attendance_OT_{date.today().isoformat()}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
 # ============================================================
 # SALARY MASTER
